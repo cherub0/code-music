@@ -28,7 +28,12 @@ function easeInOut(value: number): number {
 
 function boundariesFor(duration: number, useFixedBoundaries: boolean): ActBoundaries {
   if (useFixedBoundaries) {
-    return { bootEnd: 2, fractureEnd: 5, assemblyEnd: 8 };
+    const boundaryScale = duration > 0 && duration < 8 ? duration / 10 : 1;
+    return {
+      bootEnd: 2 * boundaryScale,
+      fractureEnd: 5 * boundaryScale,
+      assemblyEnd: 8 * boundaryScale,
+    };
   }
 
   return {

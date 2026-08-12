@@ -1,5 +1,5 @@
-import { Canvas } from '@react-three/fiber';
-import { useMemo } from 'react';
+import { addAfterEffect, addEffect, Canvas, useThree } from '@react-three/fiber';
+import { useEffect, useMemo } from 'react';
 import { performanceFrame } from '../performance/frame';
 import type { ScoreLayout } from '../score/layout';
 import { CameraRig } from './CameraRig';
@@ -21,6 +21,30 @@ export type HologramStageProps = {
 
 const CHOREOGRAPHY_SEED = 0x48f1a3;
 
+function StageTelemetry() {
+  const renderer = useThree((state) => state.gl);
+
+  useEffect(() => {
+    const previousAutoReset = renderer.info.autoReset;
+    renderer.info.autoReset = false;
+    const resetBeforeFrame = addEffect(() => renderer.info.reset());
+    const sampleAfterFrame = addAfterEffect(() => {
+      const canvas = renderer.domElement;
+      canvas.dataset.drawCalls = String(renderer.info.render.calls);
+      canvas.dataset.geometries = String(renderer.info.memory.geometries);
+      canvas.dataset.textures = String(renderer.info.memory.textures);
+    });
+
+    return () => {
+      resetBeforeFrame();
+      sampleAfterFrame();
+      renderer.info.autoReset = previousAutoReset;
+    };
+  }, [renderer]);
+
+  return null;
+}
+
 export function HologramStage({
   score,
   logicalTime,
@@ -38,6 +62,7 @@ export function HologramStage({
     <Canvas
       aria-label="Holographic MIDI performance"
       camera={{ far: 420, fov: 48, near: 0.1, position: [6.8, 3.2, -10] }}
+      data-act={frame.act}
       dpr={dpr}
       frameloop="always"
       gl={{ alpha: false, antialias: quality !== 'preview', powerPreference: 'high-performance' }}
@@ -58,6 +83,7 @@ export function HologramStage({
       />
       <CameraRig frame={frame} logicalTime={logicalTime} score={score} />
       <StageEffects logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
+      <StageTelemetry />
     </Canvas>
   );
 }

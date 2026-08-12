@@ -5,11 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "preview": "vite preview",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run src",
+    "test:watch": "vitest src",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "npm run build && playwright test --project=chromium --grep-invert @extended",
+    "e2e:performance": "npm run build && playwright test --project=chrome --grep @performance",
+    "e2e:chrome": "npm run build && playwright test --project=chrome --grep-invert @extended",
+    "e2e:edge": "npm run build && playwright test --project=edge --grep-invert @extended",
+    "e2e:manual": "npm run build && playwright test --project=chrome --project=edge --grep @manual --headed"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.10",

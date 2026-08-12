@@ -28,6 +28,13 @@ describe('performanceFrame', () => {
     expect(performanceFrame(8, 10, 7).act).toBe('perform');
   });
 
+  it('compresses short-track boundaries when the track ends before the perform act', () => {
+    expect(performanceFrame(0, 4, 7).act).toBe('boot');
+    expect(performanceFrame(0.8, 4, 7).act).toBe('fracture');
+    expect(performanceFrame(2, 4, 7).act).toBe('assemble');
+    expect(performanceFrame(3.2, 4, 7).act).toBe('perform');
+  });
+
   it('returns byte-for-byte equal choreography for the same time and seed', () => {
     const first = performanceFrame(31.25, 100, 1234);
     const second = performanceFrame(31.25, 100, 1234);
