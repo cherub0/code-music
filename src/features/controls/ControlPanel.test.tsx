@@ -3,6 +3,36 @@ import { describe, expect, it, vi } from 'vitest';
 import { ControlPanel } from './ControlPanel';
 
 describe('ControlPanel', () => {
+  it('offers Auto, High, and Low preview quality and reports an automatic fallback', () => {
+    const onPreviewQualityChange = vi.fn();
+    render(
+      <ControlPanel
+        offsetSeconds={0}
+        previewQuality="Auto"
+        qualityNotice="Auto switched to Low: bloom resolution and the visible note window were reduced."
+        speed={1}
+        transportState="paused"
+        onOffsetChange={vi.fn()}
+        onPreviewQualityChange={onPreviewQualityChange}
+        onSpeedChange={vi.fn()}
+        onTogglePlayback={vi.fn()}
+      />,
+    );
+
+    const quality = screen.getByRole('combobox', { name: 'Preview Quality' });
+    expect(quality).toHaveValue('Auto');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Auto',
+      'High',
+      'Low',
+    ]);
+    expect(screen.getByRole('status')).toHaveTextContent('bloom resolution');
+    expect(screen.getByRole('status')).toHaveTextContent('visible note window');
+
+    fireEvent.change(quality, { target: { value: 'High' } });
+    expect(onPreviewQualityChange).toHaveBeenCalledWith('High');
+  });
+
   it('exposes calibrated offset and logical speed controls', () => {
     const onOffsetChange = vi.fn();
     const onSpeedChange = vi.fn();

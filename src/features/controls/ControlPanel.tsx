@@ -1,10 +1,15 @@
 import type { TransportState } from '../transport/useTransport';
 
+export type PreviewQuality = 'Auto' | 'High' | 'Low';
+
 type ControlPanelProps = {
   offsetSeconds: number;
+  previewQuality?: PreviewQuality;
+  qualityNotice?: string | null;
   speed: number;
   transportState: TransportState;
   onOffsetChange: (seconds: number) => void;
+  onPreviewQualityChange?: (quality: PreviewQuality) => void;
   onSpeedChange: (speed: number) => void;
   onTogglePlayback: () => void;
 };
@@ -17,9 +22,12 @@ function boundedInputValue(value: string, minimum: number, maximum: number): num
 
 export function ControlPanel({
   offsetSeconds,
+  previewQuality = 'Auto',
+  qualityNotice = null,
   speed,
   transportState,
   onOffsetChange,
+  onPreviewQualityChange = () => undefined,
   onSpeedChange,
   onTogglePlayback,
 }: ControlPanelProps) {
@@ -66,6 +74,23 @@ export function ControlPanel({
         />
       </label>
       <p className="control-hint">Speed changes MIDI and animation timing only; audio stays at normal rate.</p>
+      <label className="control-field">
+        Preview Quality
+        <select
+          aria-label="Preview Quality"
+          value={previewQuality}
+          onChange={(event) => onPreviewQualityChange(event.currentTarget.value as PreviewQuality)}
+        >
+          <option value="Auto">Auto</option>
+          <option value="High">High</option>
+          <option value="Low">Low</option>
+        </select>
+      </label>
+      {qualityNotice ? (
+        <p aria-label="Preview quality status" className="control-hint" role="status">
+          {qualityNotice}
+        </p>
+      ) : null}
     </section>
   );
 }

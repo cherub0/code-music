@@ -9,19 +9,28 @@ import { ShardField } from './ShardField';
 import { StageEffects } from './StageEffects';
 
 export type StageQuality = 'preview' | 'export-720p' | 'export-1080p';
+export type PreviewRenderQuality = 'high' | 'low';
 
 export type HologramStageProps = {
   score: ScoreLayout;
   logicalTime: number;
+  previewQuality?: PreviewRenderQuality;
   quality: StageQuality;
+  seed?: number;
 };
 
 const CHOREOGRAPHY_SEED = 0x48f1a3;
 
-export function HologramStage({ score, logicalTime, quality }: HologramStageProps) {
+export function HologramStage({
+  score,
+  logicalTime,
+  quality,
+  previewQuality = 'high',
+  seed = CHOREOGRAPHY_SEED,
+}: HologramStageProps) {
   const frame = useMemo(
-    () => performanceFrame(logicalTime, score.durationSeconds, CHOREOGRAPHY_SEED),
-    [logicalTime, score.durationSeconds],
+    () => performanceFrame(logicalTime, score.durationSeconds, seed),
+    [logicalTime, score.durationSeconds, seed],
   );
   const dpr: number | [number, number] = quality === 'preview' ? [1, 1.5] : 1;
 
@@ -41,9 +50,14 @@ export function HologramStage({ score, logicalTime, quality }: HologramStageProp
 
       <CodeTerminal frame={frame} logicalTime={logicalTime} />
       <ShardField frame={frame} score={score} />
-      <ScoreRibbon frame={frame} logicalTime={logicalTime} score={score} />
+      <ScoreRibbon
+        frame={frame}
+        logicalTime={logicalTime}
+        noteWindowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8}
+        score={score}
+      />
       <CameraRig frame={frame} logicalTime={logicalTime} score={score} />
-      <StageEffects logicalTime={logicalTime} quality={quality} />
+      <StageEffects logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
     </Canvas>
   );
 }

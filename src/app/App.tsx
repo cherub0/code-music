@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ControlPanel } from '../features/controls/ControlPanel';
+import { ControlPanel, type PreviewQuality } from '../features/controls/ControlPanel';
 import { Timeline } from '../features/controls/Timeline';
 import { FilePanel } from '../features/files/FilePanel';
 import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes';
@@ -12,16 +12,56 @@ import { logicalTime } from '../features/transport/clock';
 import { useTransport } from '../features/transport/useTransport';
 import { useAppStore } from '../store/useAppStore';
 
+const DEFAULT_STAGE_SEED = 0x48f1a3;
+const MINIMUM_PREVIEW_FPS = 45;
+const SLOW_FRAME_LIMIT = 120;
+
+export type DemoManifest = {
+  title: string;
+  audioUrl: string;
+  midiUrl: string;
+  offsetSeconds: number;
+  speed: number;
+  seed: number;
+}[];
+
 function metadataFrom(file: File) {
   return { name: file.name, size: file.size, type: file.type };
 }
 
-function createAudioUrl(file: File): string | null {
-  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
+function createAudioUrl(source: Blob): string | null {
+  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(source) : null;
 }
 
 function midiSummaryFrom(score: NormalizedScore): string {
   return `MIDI 摘要：${score.tracks.length} 个音轨 · ${score.notes.length} 个音符 · ${score.durationSeconds.toFixed(2)} 秒`;
+}
+
+function fileNameFromUrl(url: string): string {
+  return url.split('/').filter(Boolean).at(-1) ?? url;
+}
+
+async function checkedFetch(url: string): Promise<Response> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not load ${url}.`);
+  return response;
+}
+
+function mismatchMessage(audioDuration: number, midiDuration: number): string | null {
+  if (audioDuration <= 0 || midiDuration <= 0) return null;
+  const difference = Math.abs(audioDuration - midiDuration);
+  const threshold = Math.max(10, Math.max(audioDuration, midiDuration) * 0.15);
+  if (difference <= threshold) return null;
+
+  return `Audio and MIDI durations differ by ${difference.toFixed(1)} seconds. Playback remains available; replace the audio or MIDI file, or adjust calibration if they are intentionally different.`;
+}
+
+function recoveryForMidiError(error: unknown): { message: string; recovery: string } {
+  const message = error instanceof Error ? error.message : 'MIDI 文件无法解析。';
+  if (message.includes('没有可播放的音符')) {
+    return { message, recovery: 'Choose a MIDI file with at least one note.' };
+  }
+  return { message, recovery: 'Choose another MIDI file and try again.' };
 }
 
 export function App() {
@@ -33,22 +73,41 @@ export function App() {
   const setMidi = useAppStore((state) => state.setMidi);
   const setOffsetSeconds = useAppStore((state) => state.setOffsetSeconds);
   const setSpeed = useAppStore((state) => state.setSpeed);
-  const audioFileRef = useRef<File | null>(null);
-  const midiFileRef = useRef<File | null>(null);
   const midiRequestRef = useRef(0);
+  const previousFrameTimestampRef = useRef<number | null>(null);
+  const slowFrameCountRef = useRef(0);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoStatus, setDemoStatus] = useState<string | null>(null);
   const [midiError, setMidiError] = useState<string | null>(null);
+  const [midiRecovery, setMidiRecovery] = useState<string | null>(null);
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
+  const [previewQuality, setPreviewQuality] = useState<PreviewQuality>('Auto');
+  const [autoReduced, setAutoReduced] = useState(false);
+  const [stageSeed, setStageSeed] = useState(DEFAULT_STAGE_SEED);
   const transport = useTransport(audioUrl);
   const [sampledAudioTime, setSampledAudioTime] = useState(() => transport.currentTime);
   const scoreLayout = useMemo(
     () => midiScore ? layoutScore(midiScore, DEFAULT_LAYOUT_OPTIONS) : null,
     [midiScore],
   );
+  const durationWarning = useMemo(
+    () => mismatchMessage(transport.duration, midiScore?.durationSeconds ?? 0),
+    [midiScore?.durationSeconds, transport.duration],
+  );
+  const resolvedPreviewQuality = previewQuality === 'Low' || (previewQuality === 'Auto' && autoReduced)
+    ? 'low'
+    : 'high';
+  const qualityNotice = previewQuality === 'Auto' && autoReduced
+    ? 'Auto switched to Low: bloom resolution and the visible note window were reduced. Select High to restore full preview quality.'
+    : previewQuality === 'Low'
+      ? 'Low preview quality: bloom resolution and the visible note window are reduced.'
+      : null;
 
   useEffect(() => () => {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    if (audioUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(audioUrl);
   }, [audioUrl]);
 
   useEffect(() => {
@@ -57,13 +116,34 @@ export function App() {
 
   useEffect(() => {
     let animationFrame = 0;
-    const sampleClock = () => {
+    const sampleClock: FrameRequestCallback = (timestamp) => {
       setSampledAudioTime(transport.audioElement.currentTime || 0);
+
+      if (previewQuality === 'Auto' && !autoReduced) {
+        const previousTimestamp = previousFrameTimestampRef.current;
+        if (previousTimestamp !== null) {
+          if (timestamp - previousTimestamp > 1000 / MINIMUM_PREVIEW_FPS) {
+            slowFrameCountRef.current += 1;
+            if (slowFrameCountRef.current >= SLOW_FRAME_LIMIT) setAutoReduced(true);
+          } else {
+            slowFrameCountRef.current = 0;
+          }
+        }
+        previousFrameTimestampRef.current = timestamp;
+      }
+
       animationFrame = requestAnimationFrame(sampleClock);
     };
-    sampleClock();
+    animationFrame = requestAnimationFrame(sampleClock);
     return () => cancelAnimationFrame(animationFrame);
-  }, [transport.audioElement]);
+  }, [autoReduced, previewQuality, transport.audioElement]);
+
+  const handlePreviewQualityChange = (quality: PreviewQuality) => {
+    previousFrameTimestampRef.current = null;
+    slowFrameCountRef.current = 0;
+    setAutoReduced(false);
+    setPreviewQuality(quality);
+  };
 
   const handleAudioSelected = (file: File) => {
     const result = validateAudioFile(file);
@@ -72,17 +152,22 @@ export function App() {
       return;
     }
 
-    audioFileRef.current = file;
     setAudio(metadataFrom(file));
     setAudioUrl(createAudioUrl(file));
     setAudioError(null);
+    setDemoError(null);
+    setDemoStatus(null);
+    setStageSeed(DEFAULT_STAGE_SEED);
   };
 
   const handleMidiSelected = async (file: File) => {
     const requestId = ++midiRequestRef.current;
     const result = validateMidiFile(file);
     if (!result.ok) {
+      setMidi(null);
+      setMidiScore(null);
       setMidiError(result.message);
+      setMidiRecovery('Choose another MIDI file and try again.');
       return;
     }
 
@@ -90,13 +175,70 @@ export function App() {
       const score = parseMidi(await readMidiBytes(file));
       if (midiRequestRef.current !== requestId) return;
 
-      midiFileRef.current = file;
       setMidi(metadataFrom(file));
       setMidiScore(score);
       setMidiError(null);
+      setMidiRecovery(null);
+      setDemoError(null);
+      setDemoStatus(null);
+      setStageSeed(DEFAULT_STAGE_SEED);
     } catch (error) {
       if (midiRequestRef.current !== requestId) return;
-      setMidiError(error instanceof Error ? error.message : 'MIDI 文件无法解析，请重新选择。');
+      const recovery = recoveryForMidiError(error);
+      setMidi(null);
+      setMidiScore(null);
+      setMidiError(recovery.message);
+      setMidiRecovery(recovery.recovery);
+    }
+  };
+
+  const handleDemoRequested = async () => {
+    const requestId = ++midiRequestRef.current;
+    setDemoLoading(true);
+    setDemoError(null);
+    setDemoStatus(null);
+
+    try {
+      const manifestResponse = await checkedFetch('/demo/manifest.json');
+      const manifest = await manifestResponse.json() as DemoManifest;
+      const demo = manifest[0];
+      if (!demo) throw new Error('The demo manifest contains no demo.');
+
+      const [audioResponse, midiResponse] = await Promise.all([
+        checkedFetch(demo.audioUrl),
+        checkedFetch(demo.midiUrl),
+      ]);
+      const [audioBlob, midiBytes] = await Promise.all([
+        audioResponse.blob(),
+        midiResponse.arrayBuffer(),
+      ]);
+      const score = parseMidi(midiBytes);
+      if (midiRequestRef.current !== requestId) return;
+
+      setAudio({
+        name: fileNameFromUrl(demo.audioUrl),
+        size: audioBlob.size,
+        type: audioBlob.type || 'audio/ogg',
+      });
+      setMidi({
+        name: fileNameFromUrl(demo.midiUrl),
+        size: midiBytes.byteLength,
+        type: 'audio/midi',
+      });
+      setAudioUrl(createAudioUrl(audioBlob));
+      setMidiScore(score);
+      setAudioError(null);
+      setMidiError(null);
+      setMidiRecovery(null);
+      setOffsetSeconds(demo.offsetSeconds);
+      setSpeed(demo.speed);
+      setStageSeed(demo.seed);
+      setDemoStatus(`${demo.title} loaded.`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown demo error.';
+      setDemoError(`The built-in demo could not be loaded. Check the local demo files and try again. ${detail}`);
+    } finally {
+      if (midiRequestRef.current === requestId) setDemoLoading(false);
     }
   };
 
@@ -111,15 +253,24 @@ export function App() {
           midiName={midi?.name ?? null}
           audioError={audioError}
           midiError={midiError}
+          midiRecovery={midiRecovery}
           midiSummary={midiScore ? midiSummaryFrom(midiScore) : null}
+          demoError={demoError}
+          demoLoading={demoLoading}
+          demoStatus={demoStatus}
+          durationWarning={durationWarning}
           onAudioSelected={handleAudioSelected}
-          onMidiSelected={handleMidiSelected}
+          onDemoRequested={() => void handleDemoRequested()}
+          onMidiSelected={(file) => void handleMidiSelected(file)}
         />
         <ControlPanel
           offsetSeconds={offsetSeconds}
+          previewQuality={previewQuality}
+          qualityNotice={qualityNotice}
           speed={speed}
           transportState={transport.state}
           onOffsetChange={setOffsetSeconds}
+          onPreviewQualityChange={handlePreviewQualityChange}
           onSpeedChange={setSpeed}
           onTogglePlayback={() => {
             if (transport.state === 'playing') transport.pause();
@@ -136,7 +287,13 @@ export function App() {
 
       {scoreLayout ? (
         <section aria-label="Holographic performance stage" className="stage-view">
-          <HologramStage score={scoreLayout} logicalTime={performanceTime} quality="preview" />
+          <HologramStage
+            logicalTime={performanceTime}
+            previewQuality={resolvedPreviewQuality}
+            quality="preview"
+            score={scoreLayout}
+            seed={stageSeed}
+          />
           <p className="stage-hud" aria-label="Logical performance time">
             LIVE / {performanceTime.toFixed(2)}s
           </p>

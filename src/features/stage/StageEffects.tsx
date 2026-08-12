@@ -2,10 +2,11 @@ import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import { useEffect, useMemo } from 'react';
 import { BlendFunction, Effect } from 'postprocessing';
 import { Uniform } from 'three';
-import type { StageQuality } from './HologramStage';
+import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 
 type StageEffectsProps = {
   logicalTime: number;
+  previewQuality?: PreviewRenderQuality;
   quality: StageQuality;
 };
 
@@ -33,8 +34,11 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-export function StageEffects({ logicalTime, quality }: StageEffectsProps) {
-  const settings = QUALITY_SETTINGS[quality];
+export function StageEffects({ logicalTime, previewQuality = 'high', quality }: StageEffectsProps) {
+  const baseSettings = QUALITY_SETTINGS[quality];
+  const settings = quality === 'preview' && previewQuality === 'low'
+    ? { ...baseSettings, resolutionScale: 0.4 }
+    : baseSettings;
   const grain = useMemo(() => new Effect('DeterministicGrain', DETERMINISTIC_GRAIN, {
     blendFunction: BlendFunction.SCREEN,
     uniforms: new Map([

@@ -51,6 +51,20 @@ class FrameSampleAudio extends EventTarget {
   readonly play = vi.fn(async () => undefined);
 }
 
+class DurationAudio extends EventTarget {
+  currentTime = 0;
+  duration: number;
+  src = '';
+  readonly load = vi.fn();
+  readonly pause = vi.fn();
+  readonly play = vi.fn(async () => undefined);
+
+  constructor(duration: number) {
+    super();
+    this.duration = duration;
+  }
+}
+
 describe('App file intake', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -107,6 +121,155 @@ describe('App file intake', () => {
     expect(screen.getByText('demo.mp3')).toBeInTheDocument();
     expect(await screen.findByText('MIDI 中没有可播放的音符')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+  });
+
+  it('gives a concrete recovery action for invalid MIDI', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择 MIDI 文件'),
+      new File(['not midi'], 'broken.mid', { type: 'audio/midi' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Choose another MIDI file');
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+  });
+
+  it('blocks empty MIDI with a concrete recovery action', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择 MIDI 文件'),
+      midiFile(new Midi(), 'empty.mid'),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Choose a MIDI file with at least one note');
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+  });
+
+  it('blocks initialization when an empty MIDI replaces a valid MIDI but keeps valid audio', async () => {
+    const user = userEvent.setup();
+    const valid = new Midi();
+    valid.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.5 });
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'keeper.ogg', { type: 'audio/ogg' }),
+    );
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(valid, 'valid.mid'));
+    await waitFor(() => expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled());
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(new Midi(), 'empty.mid'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Choose a MIDI file with at least one note');
+    expect(screen.getByText('keeper.ogg')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+  });
+
+  it('warns about a duration mismatch without blocking initialization', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(30)));
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 50, velocity: 0.5 });
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'short.ogg', { type: 'audio/ogg' }),
+    );
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'long.mid'));
+
+    const warning = await screen.findByText(/durations differ/i);
+    expect(warning).toHaveTextContent('replace the audio or MIDI file');
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
+  });
+
+  it('replaces one valid file without clearing the other valid file', async () => {
+    const user = userEvent.setup();
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.5 });
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['first'], 'first.ogg', { type: 'audio/ogg' }),
+    );
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'score.mid'));
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['second'], 'second.ogg', { type: 'audio/ogg' }),
+    );
+
+    expect(screen.getByText('second.ogg')).toBeInTheDocument();
+    expect(screen.getByText('score.mid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
+  });
+
+  it('loads the licensed built-in demo from local URLs', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('Audio', vi.fn(() => new FrameSampleAudio()));
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 64, time: 0, duration: 1, velocity: 0.7 });
+    const manifest = [{
+      title: 'Project Signal Etude',
+      audioUrl: '/demo/demo.ogg',
+      midiUrl: '/demo/demo.mid',
+      offsetSeconds: 0.125,
+      speed: 1.25,
+      seed: 9234,
+    }];
+    const audioBlob = new Blob(['audio'], { type: 'audio/ogg' });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/demo/manifest.json') return new Response(JSON.stringify(manifest));
+      if (url === '/demo/demo.ogg') return new Response(audioBlob);
+      if (url === '/demo/demo.mid') return new Response(midiBytes(source));
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:demo-audio'),
+      revokeObjectURL: vi.fn(),
+    });
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Load built-in demo' }));
+
+    expect(await screen.findByText('Project Signal Etude loaded.')).toBeInTheDocument();
+    expect(screen.getByText('demo.ogg')).toBeInTheDocument();
+    expect(screen.getByText('demo.mid')).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Calibration offset (seconds)' })).toHaveValue(0.125);
+    expect(screen.getByRole('spinbutton', { name: 'Visual speed multiplier' })).toHaveValue(1.25);
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ seed: 9234 });
+  });
+
+  it('reduces preview quality after 120 consecutive frames below 45 FPS and allows High restore', async () => {
+    const user = userEvent.setup();
+    let nextFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      nextFrame = callback;
+      return 1;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    render(<App />);
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'quality.mid'));
+    await waitFor(() => expect(nextFrame).toBeDefined());
+
+    act(() => {
+      for (let frame = 1; frame <= 121; frame += 1) nextFrame?.(frame * 25);
+    });
+
+    expect(await screen.findByRole('status', { name: 'Preview quality status' })).toHaveTextContent(
+      'bloom resolution and the visible note window were reduced',
+    );
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ previewQuality: 'low' });
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Preview Quality' }), 'High');
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ previewQuality: 'high' });
   });
 
   it('keeps the latest MIDI when an earlier file read finishes afterward', async () => {

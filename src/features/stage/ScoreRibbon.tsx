@@ -12,6 +12,7 @@ import { visibleNotes, type ScoreLayout } from '../score/layout';
 type ScoreRibbonProps = {
   frame: PerformanceFrame;
   logicalTime: number;
+  noteWindowSeconds?: number;
   score: ScoreLayout;
 };
 
@@ -22,10 +23,10 @@ function ribbonX(z: number): number {
   return Math.sin(z * 0.12) * 1.15;
 }
 
-export function maximumWindowDemand(score: ScoreLayout): number {
+export function maximumWindowDemand(score: ScoreLayout, noteWindowSeconds = NOTE_WINDOW_SECONDS): number {
   let windowStart = 0;
   let maximum = 0;
-  const span = NOTE_WINDOW_SECONDS * 2;
+  const span = noteWindowSeconds * 2;
 
   score.notes.forEach((note, windowEnd) => {
     while (note.startSeconds - score.notes[windowStart].startSeconds > span) windowStart += 1;
@@ -35,7 +36,12 @@ export function maximumWindowDemand(score: ScoreLayout): number {
   return Math.max(1, maximum);
 }
 
-export function ScoreRibbon({ frame, logicalTime, score }: ScoreRibbonProps) {
+export function ScoreRibbon({
+  frame,
+  logicalTime,
+  noteWindowSeconds = NOTE_WINDOW_SECONDS,
+  score,
+}: ScoreRibbonProps) {
   const noteMeshRef = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
   const color = useMemo(() => new Color(), []);
@@ -53,10 +59,13 @@ export function ScoreRibbon({ frame, logicalTime, score }: ScoreRibbonProps) {
     });
   }, [score.durationSeconds]);
   const nearbyNotes = useMemo(
-    () => visibleNotes(score, logicalTime, NOTE_WINDOW_SECONDS),
-    [logicalTime, score],
+    () => visibleNotes(score, logicalTime, noteWindowSeconds),
+    [logicalTime, noteWindowSeconds, score],
   );
-  const notePoolSize = useMemo(() => maximumWindowDemand(score), [score]);
+  const notePoolSize = useMemo(
+    () => maximumWindowDemand(score, noteWindowSeconds),
+    [noteWindowSeconds, score],
+  );
   const scoreOpacity = frame.act === 'perform' ? 0.92 : frame.assemblyProgress * 0.92;
 
   useLayoutEffect(() => {

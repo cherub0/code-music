@@ -25,4 +25,11 @@ describe('maximumWindowDemand', () => {
     expect(maximumWindowDemand(scoreWithStarts(Array.from({ length: 600 }, () => 4)))).toBe(600);
     expect(maximumWindowDemand(scoreWithStarts(Array.from({ length: 21 }, (_, index) => index)))).toBe(17);
   });
+
+  it('uses a smaller note window for low preview quality', () => {
+    const score = scoreWithStarts(Array.from({ length: 21 }, (_, index) => index));
+
+    expect(maximumWindowDemand(score, 8)).toBe(17);
+    expect(maximumWindowDemand(score, 4)).toBe(9);
+  });
 });
