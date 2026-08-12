@@ -44,4 +44,29 @@ describe('Timeline', () => {
     expect(onSeek).toHaveBeenLastCalledWith(12.5);
     expect(onPlay).toHaveBeenCalledTimes(1);
   });
+
+  it('finishes a cancelled drag with its final seek and conditional resume', () => {
+    const onPause = vi.fn();
+    const onPlay = vi.fn();
+    const onSeek = vi.fn();
+    render(
+      <Timeline
+        currentTime={8}
+        duration={90}
+        state="playing"
+        onPause={onPause}
+        onPlay={onPlay}
+        onSeek={onSeek}
+      />,
+    );
+    const slider = screen.getByRole('slider', { name: 'Timeline position' });
+
+    fireEvent.pointerDown(slider);
+    fireEvent.change(slider, { target: { value: '18.5' } });
+    fireEvent.pointerCancel(slider);
+
+    expect(onPause).toHaveBeenCalledTimes(1);
+    expect(onSeek).toHaveBeenLastCalledWith(18.5);
+    expect(onPlay).toHaveBeenCalledTimes(1);
+  });
 });

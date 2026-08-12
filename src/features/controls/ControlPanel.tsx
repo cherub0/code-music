@@ -9,6 +9,12 @@ type ControlPanelProps = {
   onTogglePlayback: () => void;
 };
 
+function boundedInputValue(value: string, minimum: number, maximum: number): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.min(maximum, Math.max(minimum, parsed));
+}
+
 export function ControlPanel({
   offsetSeconds,
   speed,
@@ -38,7 +44,10 @@ export function ControlPanel({
           step="0.01"
           type="number"
           value={offsetSeconds}
-          onChange={(event) => onOffsetChange(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const nextValue = boundedInputValue(event.currentTarget.value, -10, 10);
+            if (nextValue !== null) onOffsetChange(nextValue);
+          }}
         />
       </label>
       <label className="control-field">
@@ -50,7 +59,10 @@ export function ControlPanel({
           step="0.001"
           type="number"
           value={speed}
-          onChange={(event) => onSpeedChange(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const nextValue = boundedInputValue(event.currentTarget.value, 0.5, 2);
+            if (nextValue !== null) onSpeedChange(nextValue);
+          }}
         />
       </label>
       <p className="control-hint">Speed changes MIDI and animation timing only; audio stays at normal rate.</p>

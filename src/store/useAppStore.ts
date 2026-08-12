@@ -6,6 +6,11 @@ export type FileMetadata = {
   type: string;
 };
 
+function clampFinite(value: number, minimum: number, maximum: number): number | null {
+  if (!Number.isFinite(value)) return null;
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
 type AppStore = {
   audio: FileMetadata | null;
   midi: FileMetadata | null;
@@ -24,6 +29,12 @@ export const useAppStore = create<AppStore>((set) => ({
   speed: 1,
   setAudio: (audio) => set({ audio }),
   setMidi: (midi) => set({ midi }),
-  setOffsetSeconds: (offsetSeconds) => set({ offsetSeconds }),
-  setSpeed: (speed) => set({ speed }),
+  setOffsetSeconds: (offsetSeconds) => {
+    const boundedOffset = clampFinite(offsetSeconds, -10, 10);
+    if (boundedOffset !== null) set({ offsetSeconds: boundedOffset });
+  },
+  setSpeed: (speed) => {
+    const boundedSpeed = clampFinite(speed, 0.5, 2);
+    if (boundedSpeed !== null) set({ speed: boundedSpeed });
+  },
 }));

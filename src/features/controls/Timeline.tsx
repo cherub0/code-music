@@ -42,6 +42,14 @@ export function Timeline({ currentTime, duration, state, onPause, onPlay, onSeek
     }
   };
 
+  const finishDrag = () => {
+    if (!draggingRef.current) return;
+    flushSeek();
+    draggingRef.current = false;
+    if (wasPlayingRef.current) onPlay();
+    wasPlayingRef.current = false;
+  };
+
   useEffect(() => () => {
     if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
   }, []);
@@ -67,13 +75,9 @@ export function Timeline({ currentTime, duration, state, onPause, onPlay, onSeek
         onPointerMove={(event) => {
           if (draggingRef.current) scheduleSeek(Number(event.currentTarget.value));
         }}
-        onPointerUp={() => {
-          if (!draggingRef.current) return;
-          flushSeek();
-          draggingRef.current = false;
-          if (wasPlayingRef.current) onPlay();
-          wasPlayingRef.current = false;
-        }}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+        onLostPointerCapture={finishDrag}
       />
       <span>{formatTime(duration)}</span>
     </section>
