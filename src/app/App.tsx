@@ -1,10 +1,17 @@
 import { useRef, useState } from 'react';
 import { FilePanel } from '../features/files/FilePanel';
 import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes';
+import { readMidiBytes } from '../features/files/loadLocal';
+import { parseMidi } from '../features/midi/parseMidi';
+import type { NormalizedScore } from '../features/midi/types';
 import { useAppStore } from '../store/useAppStore';
 
 function metadataFrom(file: File) {
   return { name: file.name, size: file.size, type: file.type };
+}
+
+function midiSummaryFrom(score: NormalizedScore): string {
+  return `MIDI 摘要：${score.tracks.length} 个音轨 · ${score.notes.length} 个音符 · ${score.durationSeconds.toFixed(2)} 秒`;
 }
 
 export function App() {
@@ -16,6 +23,7 @@ export function App() {
   const midiFileRef = useRef<File | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [midiError, setMidiError] = useState<string | null>(null);
+  const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
 
   const handleAudioSelected = (file: File) => {
     const result = validateAudioFile(file);
@@ -29,19 +37,26 @@ export function App() {
     setAudioError(null);
   };
 
-  const handleMidiSelected = (file: File) => {
+  const handleMidiSelected = async (file: File) => {
     const result = validateMidiFile(file);
     if (!result.ok) {
       setMidiError(result.message);
       return;
     }
 
-    midiFileRef.current = file;
-    setMidi(metadataFrom(file));
-    setMidiError(null);
+    try {
+      const score = parseMidi(await readMidiBytes(file));
+
+      midiFileRef.current = file;
+      setMidi(metadataFrom(file));
+      setMidiScore(score);
+      setMidiError(null);
+    } catch (error) {
+      setMidiError(error instanceof Error ? error.message : 'MIDI 文件无法解析，请重新选择。');
+    }
   };
 
-  const canInitialize = audio !== null && midi !== null;
+  const canInitialize = audio !== null && midi !== null && midiScore !== null;
 
   return (
     <main className="app-shell">
@@ -51,6 +66,7 @@ export function App() {
           midiName={midi?.name ?? null}
           audioError={audioError}
           midiError={midiError}
+          midiSummary={midiScore ? midiSummaryFrom(midiScore) : null}
           onAudioSelected={handleAudioSelected}
           onMidiSelected={handleMidiSelected}
         />

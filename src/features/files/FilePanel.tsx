@@ -3,6 +3,7 @@ type FilePanelProps = {
   midiName: string | null;
   audioError: string | null;
   midiError: string | null;
+  midiSummary: string | null;
   onAudioSelected: (file: File) => void;
   onMidiSelected: (file: File) => void;
 };
@@ -16,6 +17,7 @@ export function FilePanel({
   midiName,
   audioError,
   midiError,
+  midiSummary,
   onAudioSelected,
   onMidiSelected,
 }: FilePanelProps) {
@@ -52,6 +54,7 @@ export function FilePanel({
           }}
         />
         <p className="file-status">{midiName ?? '支持 MID、MIDI（最大 20 MB）'}</p>
+        {midiSummary ? <p className="file-status" role="status">{midiSummary}</p> : null}
         {midiError ? <p className="input-error" role="alert">{midiError}</p> : null}
       </div>
     </section>
