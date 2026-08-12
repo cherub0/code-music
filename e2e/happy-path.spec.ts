@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
   loadBuiltInDemo,
   observeExternalRequests,
@@ -7,6 +9,90 @@ import {
 } from './app-driver';
 
 const ACTS: PerformanceAct[] = ['boot', 'fracture', 'assemble', 'perform'];
+
+type ViteManifestEntry = {
+  file: string;
+  imports?: string[];
+  isEntry?: boolean;
+  src?: string;
+};
+
+type BundleGraph = {
+  assets: Record<string, { originalFileNames: string[] }>;
+  chunks: Record<string, {
+    assetReferences: string[];
+    dynamicImports: string[];
+    imports: string[];
+    isEntry: boolean;
+    modules: string[];
+    referencedFiles?: string[];
+  }>;
+};
+
+async function readJson<T>(file: string): Promise<T | null> {
+  try {
+    return JSON.parse(await readFile(file, 'utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+function isFfmpegModule(id: string): boolean {
+  return /(?:^|\/)node_modules\/@ffmpeg\/(?:ffmpeg|core|util)(?:\/|$|\?)/i.test(id.replaceAll('\\', '/'));
+}
+
+async function builtBundleProof() {
+  const [manifest, graph] = await Promise.all([
+    readJson<Record<string, ViteManifestEntry>>(path.resolve('dist/.vite/manifest.json')),
+    readJson<BundleGraph>(path.resolve('dist/.vite/bundle-graph.json')),
+  ]);
+  expect(manifest, 'Vite build manifest must be emitted').not.toBeNull();
+  expect(graph, 'module-level bundle graph must be emitted').not.toBeNull();
+
+  const buildManifest = manifest!;
+  const bundleGraph = graph!;
+  const entry = buildManifest['index.html']
+    ?? Object.values(buildManifest).find((candidate) => candidate.isEntry);
+  expect(entry, 'index.html must resolve to the production entry chunk').toBeDefined();
+
+  const staticFiles = new Set<string>();
+  const visitStaticChunk = (file: string) => {
+    if (staticFiles.has(file)) return;
+    const chunk = bundleGraph.chunks[file];
+    expect(chunk, `static chunk ${file} must exist in the module graph`).toBeDefined();
+    staticFiles.add(file);
+    [...chunk.assetReferences, ...(chunk.referencedFiles ?? [])]
+      .forEach((asset) => staticFiles.add(asset));
+    chunk.imports.forEach(visitStaticChunk);
+  };
+  visitStaticChunk(entry!.file);
+
+  const staticModules = [...staticFiles]
+    .filter((file) => file in bundleGraph.chunks)
+    .flatMap((file) => bundleGraph.chunks[file].modules);
+  const ffmpegChunks = Object.entries(bundleGraph.chunks)
+    .filter(([, chunk]) => chunk.modules.some(isFfmpegModule));
+  const deferredFfmpegFiles = [...new Set([
+    ...ffmpegChunks.map(([file]) => file),
+    ...ffmpegChunks.flatMap(([, chunk]) => chunk.assetReferences),
+    ...ffmpegChunks.flatMap(([, chunk]) => chunk.referencedFiles ?? []),
+    ...Object.entries(bundleGraph.assets)
+      .filter(([file, asset]) => isFfmpegModule(file) || asset.originalFileNames.some(isFfmpegModule))
+      .map(([file]) => file),
+  ])];
+  const emittedFfmpegRuntimeFiles = [
+    ...Object.keys(bundleGraph.chunks),
+    ...Object.keys(bundleGraph.assets),
+  ].filter((file) => /(?:^|\/)(?:worker|ffmpeg-core)-[^/]+\.(?:js|wasm)$/i.test(file));
+
+  return {
+    deferredFfmpegFiles,
+    emittedFfmpegRuntimeFiles,
+    entryFile: entry!.file,
+    staticFiles: [...staticFiles],
+    staticModules,
+  };
+}
 
 test('built-in demo plays and rebuilds every act after an absolute seek', async ({ page }, testInfo) => {
   const externalRequests = observeExternalRequests(page);
@@ -25,6 +111,16 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
   }
 
   expect(externalRequests, 'audio and MIDI must remain on the local app origin').toEqual([]);
+});
+
+test('@extended @performance keeps every FFmpeg module outside the initial static graph', async () => {
+  const proof = await builtBundleProof();
+
+  expect(proof.staticModules.filter(isFfmpegModule)).toEqual([]);
+  expect(proof.deferredFfmpegFiles.length, 'the graph must identify the deferred FFmpeg implementation').toBeGreaterThan(0);
+  expect(proof.deferredFfmpegFiles.some((file) => file.endsWith('.wasm')), 'the graph must classify the FFmpeg WASM asset').toBe(true);
+  expect(proof.emittedFfmpegRuntimeFiles.filter((file) => !proof.deferredFfmpegFiles.includes(file)), 'every emitted FFmpeg worker/core asset must remain deferred').toEqual([]);
+  expect(proof.staticFiles.filter((file) => proof.deferredFfmpegFiles.includes(file))).toEqual([]);
 });
 
 test('@extended @performance records the 1080p preview budget after warm-up', async ({ page }, testInfo) => {
@@ -78,35 +174,51 @@ test('@extended @performance records the 1080p preview budget after warm-up', as
   for (let cycle = 0; cycle < 5; cycle += 1) {
     await seekToAct(page, 'boot');
     await seekToAct(page, 'perform');
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
     seekSamples.push(await canvas.evaluate((element) => ({
       geometries: Number(element.dataset.geometries),
       textures: Number(element.dataset.textures),
     })));
   }
 
-  const loadedScripts = await page.evaluate(() => [...new Set([
+  const initialResourceUrls = await page.evaluate(() => [...new Set([
     ...Array.from(document.scripts, (script) => script.src).filter(Boolean),
     ...performance
       .getEntriesByType('resource')
-      .filter((entry) => (entry as PerformanceResourceTiming).initiatorType === 'script')
       .map((entry) => entry.name),
   ])]);
-  const metrics = { browserSample, rendererSample, seekSamples, loadedScripts };
+  const bundleProof = await builtBundleProof();
+  const requestedFfmpegFiles = initialResourceUrls.filter((url) => {
+    const pathname = new URL(url).pathname.replace(/^\//, '');
+    return bundleProof.deferredFfmpegFiles.includes(pathname);
+  });
+  const metrics = {
+    browserSample,
+    rendererSample,
+    seekSamples,
+    bundle: {
+      deferredFfmpegFiles: bundleProof.deferredFfmpegFiles,
+      entryFile: bundleProof.entryFile,
+      initialResourceUrls,
+      initialStaticFiles: bundleProof.staticFiles,
+    },
+  };
   await testInfo.attach('performance-budget.json', {
     body: JSON.stringify(metrics, null, 2),
     contentType: 'application/json',
   });
   console.log(`PERFORMANCE_BUDGET ${JSON.stringify(metrics)}`);
 
-  const growsMonotonically = (values: number[]) => values.at(-1)! > values[0]
-    && values.every((value, index) => index === 0 || value >= values[index - 1]);
-
   expect(browserSample.averageFps).toBeGreaterThanOrEqual(50);
   expect(rendererSample.drawCalls).toBeGreaterThan(1);
   expect(rendererSample.drawCalls).toBeLessThanOrEqual(120);
-  expect(growsMonotonically(seekSamples.map((sample) => sample.geometries))).toBe(false);
-  expect(growsMonotonically(seekSamples.map((sample) => sample.textures))).toBe(false);
-  expect(loadedScripts.length).toBeGreaterThan(0);
-  expect(loadedScripts.some((url) => /ffmpeg|814\.js|worker/i.test(url))).toBe(false);
+  expect(seekSamples).toEqual(Array.from({ length: 5 }, () => ({
+    geometries: rendererSample.geometries,
+    textures: rendererSample.textures,
+  })));
+  expect(initialResourceUrls.length).toBeGreaterThan(0);
+  expect(requestedFfmpegFiles, 'no deferred FFmpeg chunk, worker, core, or WASM may load before MP4').toEqual([]);
   expect(externalRequests, 'the performance probe must not upload local media').toEqual([]);
 });
