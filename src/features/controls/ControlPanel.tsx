@@ -3,6 +3,7 @@ import type { TransportState } from '../transport/useTransport';
 export type PreviewQuality = 'Auto' | 'High' | 'Low';
 
 type ControlPanelProps = {
+  performanceEnabled?: boolean;
   offsetSeconds: number;
   previewQuality?: PreviewQuality;
   qualityNotice?: string | null;
@@ -21,6 +22,7 @@ function boundedInputValue(value: string, minimum: number, maximum: number): num
 }
 
 export function ControlPanel({
+  performanceEnabled = true,
   offsetSeconds,
   previewQuality = 'Auto',
   qualityNotice = null,
@@ -37,7 +39,7 @@ export function ControlPanel({
     <section aria-label="Performance controls" className="transport-controls">
       <button
         className="primary-action"
-        disabled={transportState === 'idle' || transportState === 'error'}
+        disabled={!performanceEnabled || transportState === 'idle' || transportState === 'error'}
         type="button"
         onClick={onTogglePlayback}
       >

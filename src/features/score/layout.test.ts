@@ -41,17 +41,29 @@ describe('layoutScore', () => {
 });
 
 describe('visibleNotes', () => {
-  it('returns only notes whose starts are in the centered active time window', () => {
+  it('keeps sustained notes that overlap the centered window, including both boundaries', () => {
     const longLayout = layoutScore({
       durationSeconds: 50,
       tracks: [],
-      notes: [10, 22, 25, 30, 38, 39].map((startSeconds, index) => ({
-        ...oneNoteScore.notes[0],
-        id: `note-${index}`,
-        startSeconds,
-      })),
+      notes: [
+        { ...oneNoteScore.notes[0], id: 'sustained', startSeconds: 10, durationSeconds: 20 },
+        { ...oneNoteScore.notes[0], id: 'ended-before-window', startSeconds: 12, durationSeconds: 9.99 },
+        { ...oneNoteScore.notes[0], id: 'ends-at-window-start', startSeconds: 14, durationSeconds: 8 },
+        ...[22, 25, 30, 38, 39].map((startSeconds, index) => ({
+          ...oneNoteScore.notes[0],
+          id: `note-${index}`,
+          startSeconds,
+        })),
+      ],
     }, DEFAULT_LAYOUT_OPTIONS);
 
-    expect(visibleNotes(longLayout, 30, 8).map((note) => note.startSeconds)).toEqual([22, 25, 30, 38]);
+    expect(visibleNotes(longLayout, 30, 8).map((note) => note.id)).toEqual([
+      'sustained',
+      'ends-at-window-start',
+      'note-0',
+      'note-1',
+      'note-2',
+      'note-3',
+    ]);
   });
 });

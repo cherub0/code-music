@@ -31,36 +31,52 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function lowerBound(notes: PositionedNote[], target: number): number {
-  let low = 0;
-  let high = notes.length;
+type IntervalNode = {
+  left: IntervalNode | null;
+  maxEnd: number;
+  note: PositionedNote;
+  right: IntervalNode | null;
+};
 
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (notes[middle].startSeconds < target) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
-  }
+const intervalIndexes = new WeakMap<ScoreLayout, IntervalNode | null>();
 
-  return low;
+function noteEnd(note: PositionedNote): number {
+  return note.startSeconds + Math.max(0, note.durationSeconds);
 }
 
-function upperBound(notes: PositionedNote[], target: number): number {
-  let low = 0;
-  let high = notes.length;
+function buildIntervalIndex(notes: PositionedNote[], start = 0, end = notes.length): IntervalNode | null {
+  if (start >= end) return null;
+  const middle = start + Math.floor((end - start) / 2);
+  const left = buildIntervalIndex(notes, start, middle);
+  const right = buildIntervalIndex(notes, middle + 1, end);
+  const note = notes[middle];
+  return {
+    left,
+    maxEnd: Math.max(noteEnd(note), left?.maxEnd ?? -Infinity, right?.maxEnd ?? -Infinity),
+    note,
+    right,
+  };
+}
 
-  while (low < high) {
-    const middle = low + Math.floor((high - low) / 2);
-    if (notes[middle].startSeconds <= target) {
-      low = middle + 1;
-    } else {
-      high = middle;
-    }
+function intervalIndexFor(layout: ScoreLayout): IntervalNode | null {
+  if (!intervalIndexes.has(layout)) intervalIndexes.set(layout, buildIntervalIndex(layout.notes));
+  return intervalIndexes.get(layout) ?? null;
+}
+
+function collectOverlaps(
+  node: IntervalNode | null,
+  windowStart: number,
+  windowEnd: number,
+  matches: PositionedNote[],
+): void {
+  if (!node || node.maxEnd < windowStart) return;
+  collectOverlaps(node.left, windowStart, windowEnd, matches);
+  if (node.note.startSeconds <= windowEnd && noteEnd(node.note) >= windowStart) {
+    matches.push(node.note);
   }
-
-  return low;
+  if (node.note.startSeconds <= windowEnd) {
+    collectOverlaps(node.right, windowStart, windowEnd, matches);
+  }
 }
 
 export function layoutScore(score: NormalizedScore, options: LayoutOptions): ScoreLayout {
@@ -77,11 +93,13 @@ export function layoutScore(score: NormalizedScore, options: LayoutOptions): Sco
 
   notes.sort((left, right) => left.startSeconds - right.startSeconds);
 
-  return {
+  const layout = {
     durationSeconds: score.durationSeconds,
     notes,
     tracks: score.tracks,
   };
+  intervalIndexes.set(layout, buildIntervalIndex(notes));
+  return layout;
 }
 
 export function visibleNotes(
@@ -92,8 +110,7 @@ export function visibleNotes(
   const halfWindow = Math.max(0, windowSeconds);
   const windowStart = time - halfWindow;
   const windowEnd = time + halfWindow;
-  const firstVisible = lowerBound(layout.notes, windowStart);
-  const endExclusive = upperBound(layout.notes, windowEnd);
-
-  return layout.notes.slice(firstVisible, endExclusive);
+  const matches: PositionedNote[] = [];
+  collectOverlaps(intervalIndexFor(layout), windowStart, windowEnd, matches);
+  return matches;
 }

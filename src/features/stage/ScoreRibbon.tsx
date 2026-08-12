@@ -24,13 +24,21 @@ function ribbonX(z: number): number {
 }
 
 export function maximumWindowDemand(score: ScoreLayout, noteWindowSeconds = NOTE_WINDOW_SECONDS): number {
-  let windowStart = 0;
-  let maximum = 0;
-  const span = noteWindowSeconds * 2;
+  const halfWindow = Math.max(0, noteWindowSeconds);
+  const events = score.notes.flatMap((note) => [
+    { delta: 1, time: note.startSeconds - halfWindow },
+    {
+      delta: -1,
+      time: note.startSeconds + Math.max(0, note.durationSeconds) + halfWindow,
+    },
+  ]);
+  events.sort((left, right) => left.time - right.time || right.delta - left.delta);
 
-  score.notes.forEach((note, windowEnd) => {
-    while (note.startSeconds - score.notes[windowStart].startSeconds > span) windowStart += 1;
-    maximum = Math.max(maximum, windowEnd - windowStart + 1);
+  let active = 0;
+  let maximum = 0;
+  events.forEach((event) => {
+    active += event.delta;
+    maximum = Math.max(maximum, active);
   });
 
   return Math.max(1, maximum);

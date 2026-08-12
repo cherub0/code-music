@@ -128,8 +128,9 @@ export function App() {
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
   const [previewQuality, setPreviewQuality] = useState<PreviewQuality>('Auto');
   const [autoReduced, setAutoReduced] = useState(false);
+  const [performanceInitialized, setPerformanceInitialized] = useState(false);
   const [stageSeed, setStageSeed] = useState(DEFAULT_STAGE_SEED);
-  const transport = useTransport(audioUrl);
+  const transport = useTransport(audioUrl, audio?.name ?? null);
   const [sampledAudioTime, setSampledAudioTime] = useState(() => transport.currentTime);
   const [exportAudioTime, setExportAudioTime] = useState(0);
   const exportCapabilities = useMemo(() => detectExportCapabilities(), []);
@@ -157,6 +158,10 @@ export function App() {
   useEffect(() => {
     transport.setSpeed(speed);
   }, [speed, transport.setSpeed]);
+
+  useEffect(() => {
+    if (transport.error) setPerformanceInitialized(false);
+  }, [transport.error]);
 
   useEffect(() => {
     let animationFrame = 0;
@@ -204,6 +209,7 @@ export function App() {
 
     setAudio(metadataFrom(file));
     setAudioUrl(createAudioUrl(file));
+    setPerformanceInitialized(false);
     setAudioError(null);
     setDemoError(null);
     setDemoStatus(null);
@@ -212,6 +218,7 @@ export function App() {
 
   const handleMidiSelected = async (file: File) => {
     cancelPendingDemo();
+    setPerformanceInitialized(false);
     const requestId = ++midiRequestRef.current;
     const result = validateMidiFile(file);
     if (!result.ok) {
@@ -247,6 +254,7 @@ export function App() {
     const requestId = ++demoRequestRef.current;
     midiRequestRef.current += 1;
     setDemoLoading(true);
+    setPerformanceInitialized(false);
     setDemoError(null);
     setDemoStatus(null);
 
@@ -295,7 +303,11 @@ export function App() {
     }
   };
 
-  const canInitialize = audio !== null && midi !== null && midiScore !== null;
+  const canInitialize = audio !== null
+    && midi !== null
+    && midiScore !== null
+    && transport.state !== 'error';
+  const performanceReady = performanceInitialized && canInitialize;
   const lockedOffset = exportLock?.offsetSeconds ?? offsetSeconds;
   const lockedSpeed = exportLock?.speed ?? speed;
   const performanceTime = logicalTime(
@@ -337,7 +349,7 @@ export function App() {
           <FilePanel
             audioName={audio?.name ?? null}
             midiName={midi?.name ?? null}
-            audioError={audioError}
+            audioError={audioError ?? transport.error}
             midiError={midiError}
             midiRecovery={midiRecovery}
             midiSummary={midiScore ? midiSummaryFrom(midiScore) : null}
@@ -351,6 +363,7 @@ export function App() {
           />
           <ControlPanel
             offsetSeconds={offsetSeconds}
+            performanceEnabled={performanceReady}
             previewQuality={previewQuality}
             qualityNotice={qualityNotice}
             speed={speed}
@@ -359,19 +372,29 @@ export function App() {
             onPreviewQualityChange={handlePreviewQualityChange}
             onSpeedChange={setSpeed}
             onTogglePlayback={() => {
+              if (!performanceReady) return;
               if (transport.state === 'playing') transport.pause();
               else void transport.play();
             }}
           />
-          <button className="primary-action" disabled={!canInitialize} type="button">
-            启动演出
+          <button
+            className="primary-action"
+            disabled={!canInitialize || performanceInitialized}
+            type="button"
+            onClick={() => {
+              transport.seek(0);
+              setSampledAudioTime(0);
+              setPerformanceInitialized(true);
+            }}
+          >
+            {performanceInitialized ? '演出已初始化' : '启动演出'}
           </button>
         </fieldset>
         <ExportPanel
           audioName={audio?.name ?? null}
           capabilities={exportCapabilities}
           durationSeconds={transport.duration}
-          ready={canInitialize && transport.duration > 0}
+          ready={performanceReady && transport.duration > 0}
           seed={stageSeed}
           onPrepare={prepareExport}
           onRestore={() => {
@@ -381,7 +404,7 @@ export function App() {
         />
       </aside>
 
-      {scoreLayout ? (
+      {performanceReady && scoreLayout ? (
         <section
           aria-label="Holographic performance stage"
           className="stage-view"
@@ -405,14 +428,18 @@ export function App() {
         </section>
       ) : (
         <section aria-labelledby="stage-title" className="stage-placeholder">
-          <p className="eyebrow">STAGE / STANDBY</p>
-          <h2 id="stage-title">等待本地音频与 MIDI</h2>
-          <p>选择两个有效文件后即可初始化演出预览。</p>
+          <p className="eyebrow">{canInitialize ? 'STAGE / READY' : 'STAGE / STANDBY'}</p>
+          <h2 id="stage-title">{canInitialize ? '音频与 MIDI 已就绪' : '等待本地音频与 MIDI'}</h2>
+          <p>
+            {canInitialize
+              ? '点击“启动演出”初始化舞台并启用播放与时间轴。'
+              : '选择两个有效文件后即可准备演出预览。'}
+          </p>
           <p aria-label="Logical performance time">Logical time: {performanceTime.toFixed(2)}s</p>
         </section>
       )}
 
-      <fieldset className="timeline-control-lock" disabled={exportLock !== null}>
+      <fieldset className="timeline-control-lock" disabled={exportLock !== null || !performanceReady}>
         <Timeline
           currentTime={transport.currentTime}
           duration={transport.duration}

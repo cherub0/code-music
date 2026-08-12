@@ -21,18 +21,32 @@ describe('performanceFrame', () => {
     expect(performanceFrame(percent, 100, 7).act).toBe(act);
   });
 
-  it('uses fixed act boundaries for short tracks', () => {
+  it('uses fixed 0/2/5/8 boundaries from 8 seconds up to but not including 20', () => {
+    expect(performanceFrame(1.99, 8, 7).act).toBe('boot');
+    expect(performanceFrame(2, 8, 7).act).toBe('fracture');
+    expect(performanceFrame(5, 8, 7).act).toBe('assemble');
+    expect(performanceFrame(8, 8, 7).act).toBe('perform');
     expect(performanceFrame(0, 10, 7).act).toBe('boot');
     expect(performanceFrame(2, 10, 7).act).toBe('fracture');
     expect(performanceFrame(5, 10, 7).act).toBe('assemble');
     expect(performanceFrame(8, 10, 7).act).toBe('perform');
+    expect(performanceFrame(8, 19.99, 7).act).toBe('perform');
+    expect(performanceFrame(2, 19.99, 7).act).toBe('fracture');
   });
 
-  it('compresses short-track boundaries when the track ends before the perform act', () => {
+  it('switches to proportional 12/28/45 percent boundaries at 20 seconds', () => {
+    expect(performanceFrame(2, 20, 7).act).toBe('boot');
+    expect(performanceFrame(2.4, 20, 7).act).toBe('fracture');
+    expect(performanceFrame(5.61, 20, 7).act).toBe('assemble');
+    expect(performanceFrame(9.01, 20, 7).act).toBe('perform');
+  });
+
+  it('proportionally compresses tracks under 8 seconds and preserves a final perform act', () => {
     expect(performanceFrame(0, 4, 7).act).toBe('boot');
     expect(performanceFrame(0.8, 4, 7).act).toBe('fracture');
     expect(performanceFrame(2, 4, 7).act).toBe('assemble');
     expect(performanceFrame(3.2, 4, 7).act).toBe('perform');
+    expect(performanceFrame(3.99, 4, 7).act).toBe('perform');
   });
 
   it('returns byte-for-byte equal choreography for the same time and seed', () => {

@@ -30,8 +30,9 @@ The built-in **Project Signal Etude** pair is available from **Load built-in dem
 
 1. Choose an MP3, WAV, or OGG music file.
 2. Choose its matching `.mid` or `.midi` score.
-3. Start playback, pause, or seek with the bottom timeline. A seek rebuilds the animation from absolute logical time rather than replaying missed frames.
-4. Adjust calibration if the score and audio do not begin together.
+3. Select **启动演出** to initialize the stage and enable playback, the timeline, and export. File selection prepares the pair but does not mount a live stage or enable transport by itself.
+4. Start playback, pause, or seek with the bottom timeline. A seek rebuilds the animation from absolute logical time rather than replaying missed frames.
+5. Adjust calibration if the score and audio do not begin together.
 
 The app does not transcribe audio. For the best match, obtain a legitimately licensed MIDI made for the same recording/arrangement, or create one in a DAW by setting the recording's tempo map, entering/importing the notes, aligning the first intended downbeat, and exporting a Standard MIDI File. A MIDI for a different performance may have the right notes but still drift.
 
@@ -44,6 +45,10 @@ Start with offset `0` and speed `1`:
 - Recheck the beginning and end after each speed change, then fine-tune offset again.
 
 A single offset and speed cannot continuously align a live performance whose tempo drifts relative to the MIDI. That requires a tempo map or dynamic time warping, neither of which is in V1.
+
+### Four-act timing
+
+Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 45% of total duration. Tracks from 8 seconds up to (but not including) 20 seconds use fixed boundaries at 2, 5, and 8 seconds. Tracks under 8 seconds use compressed boundaries at 20%, 50%, and 80%, leaving the final 20% for the perform act. This last rule is an explicit final-review correction to the earlier implementation-plan wording; it lets the 4-second licensed demo show all four acts at 0.8, 2.0, and 3.2 seconds.
 
 ## Export
 

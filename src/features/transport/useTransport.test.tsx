@@ -17,8 +17,8 @@ class FakeAudioElement extends EventTarget {
   });
 }
 
-function TransportHarness({ audioUrl }: { audioUrl: string | null }) {
-  const transport = useTransport(audioUrl);
+function TransportHarness({ audioName = null, audioUrl }: { audioName?: string | null; audioUrl: string | null }) {
+  const transport = useTransport(audioUrl, audioName);
 
   return (
     <>
@@ -26,6 +26,7 @@ function TransportHarness({ audioUrl }: { audioUrl: string | null }) {
       <output data-testid="time">{transport.currentTime}</output>
       <output data-testid="duration">{transport.duration}</output>
       <output data-testid="speed">{transport.speed}</output>
+      <output data-testid="error">{transport.error}</output>
       <button type="button" onClick={() => void transport.play()}>play</button>
       <button type="button" onClick={transport.pause}>pause</button>
       <button type="button" onClick={() => transport.seek(12.5)}>seek</button>
@@ -67,6 +68,31 @@ describe('useTransport', () => {
       screen.getByRole('button', { name: 'pause' }).click();
     });
     expect(screen.getByTestId('state')).toHaveTextContent('paused');
+  });
+
+  it('reports an actionable decode error for the affected file and clears it on replacement', () => {
+    const audio = new FakeAudioElement() as FakeAudioElement & {
+      error: { code: number; message: string } | null;
+    };
+    audio.error = null;
+    vi.stubGlobal('Audio', vi.fn(() => audio));
+    const view = render(<TransportHarness audioName="broken.wav" audioUrl="blob:broken" />);
+
+    act(() => {
+      audio.error = { code: 3, message: 'DEMUXER_ERROR_COULD_NOT_OPEN' };
+      audio.dispatchEvent(new Event('error'));
+    });
+
+    expect(screen.getByTestId('state')).toHaveTextContent('error');
+    expect(screen.getByTestId('error')).toHaveTextContent('broken.wav');
+    expect(screen.getByTestId('error')).toHaveTextContent('浏览器无法解码');
+    expect(screen.getByTestId('error')).toHaveTextContent('请更换该音频文件');
+    expect(screen.getByTestId('error')).toHaveTextContent('重新编码为标准 MP3、WAV 或 OGG');
+
+    view.rerender(<TransportHarness audioName="replacement.ogg" audioUrl="blob:replacement" />);
+
+    expect(screen.getByTestId('state')).toHaveTextContent('paused');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
   });
 
   it('removes media listeners when disposed', () => {

@@ -17,6 +17,15 @@ type ActBoundaries = {
   assemblyEnd: number;
 };
 
+const FIXED_BOOT_END = 2;
+const FIXED_FRACTURE_END = 5;
+const FIXED_ASSEMBLY_END = 8;
+const FIXED_BOUNDARY_DURATION_LIMIT = 20;
+const COMPRESSED_BOUNDARY_DURATION_LIMIT = 8;
+// A 10-unit reference maps the fixed 2/5/8 markers to 20%/50%/80%,
+// reserving the final 20% of a very short track for the perform act.
+const COMPRESSED_TIMELINE_REFERENCE_DURATION = 10;
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
@@ -26,13 +35,15 @@ function easeInOut(value: number): number {
   return progress * progress * (3 - 2 * progress);
 }
 
-function boundariesFor(duration: number, useFixedBoundaries: boolean): ActBoundaries {
-  if (useFixedBoundaries) {
-    const boundaryScale = duration > 0 && duration < 8 ? duration / 10 : 1;
+function boundariesFor(duration: number): ActBoundaries {
+  if (duration < FIXED_BOUNDARY_DURATION_LIMIT) {
+    const boundaryScale = duration < COMPRESSED_BOUNDARY_DURATION_LIMIT
+      ? duration / COMPRESSED_TIMELINE_REFERENCE_DURATION
+      : 1;
     return {
-      bootEnd: 2 * boundaryScale,
-      fractureEnd: 5 * boundaryScale,
-      assemblyEnd: 8 * boundaryScale,
+      bootEnd: FIXED_BOOT_END * boundaryScale,
+      fractureEnd: FIXED_FRACTURE_END * boundaryScale,
+      assemblyEnd: FIXED_ASSEMBLY_END * boundaryScale,
     };
   }
 
@@ -50,12 +61,12 @@ function progressBetween(time: number, start: number, end: number): number {
 export function performanceFrame(time: number, duration: number, seed: number): PerformanceFrame {
   const absoluteTime = Math.max(0, time);
   const safeDuration = Math.max(0, duration);
-  const useFixedBoundaries = safeDuration < 20;
-  const timelineTime = useFixedBoundaries
+  const useAbsoluteBoundaries = safeDuration < FIXED_BOUNDARY_DURATION_LIMIT;
+  const timelineTime = useAbsoluteBoundaries
     ? absoluteTime
     : absoluteTime / Math.max(safeDuration, Number.EPSILON);
-  const timelineDuration = useFixedBoundaries ? safeDuration : 1;
-  const { bootEnd, fractureEnd, assemblyEnd } = boundariesFor(safeDuration, useFixedBoundaries);
+  const timelineDuration = useAbsoluteBoundaries ? safeDuration : 1;
+  const { bootEnd, fractureEnd, assemblyEnd } = boundariesFor(safeDuration);
   const act: PerformanceAct = timelineTime < bootEnd
     ? 'boot'
     : timelineTime < fractureEnd

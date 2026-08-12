@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 
 export type PerformanceAct = 'boot' | 'fracture' | 'assemble' | 'perform';
 
-const SHORT_TRACK_BOUNDARY_RATIOS: Record<PerformanceAct, number> = {
+const VERY_SHORT_TRACK_BOUNDARY_RATIOS: Record<PerformanceAct, number> = {
   boot: 0,
   fracture: 0.2,
   assemble: 0.5,
@@ -13,6 +13,8 @@ export async function loadBuiltInDemo(page: Page): Promise<void> {
   await page.goto('/');
   await page.getByRole('button', { name: 'Load built-in demo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Project Signal Etude loaded.' })).toBeVisible();
+  await expect(page.getByLabel('Holographic MIDI performance')).toHaveCount(0);
+  await page.getByRole('button', { name: '启动演出' }).click();
   await expect(page.getByLabel('Timeline position')).toBeEnabled();
   await expect(page.getByLabel('Holographic MIDI performance')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
@@ -24,8 +26,8 @@ export async function seekToAct(page: Page, act: PerformanceAct): Promise<number
   expect(duration).toBeGreaterThan(0);
 
   const fixedBoundary = { boot: 0, fracture: 2, assemble: 5, perform: 8 }[act];
-  const target = duration < 10
-    ? duration * SHORT_TRACK_BOUNDARY_RATIOS[act]
+  const target = duration < 8
+    ? duration * VERY_SHORT_TRACK_BOUNDARY_RATIOS[act]
     : fixedBoundary;
 
   await timeline.evaluate((element, value) => {

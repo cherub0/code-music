@@ -72,6 +72,7 @@ class FrameSampleAudio extends EventTarget {
 class DurationAudio extends EventTarget {
   currentTime = 0;
   duration: number;
+  error: { code: number; message: string } | null = null;
   src = '';
   readonly load = vi.fn();
   readonly pause = vi.fn();
@@ -110,8 +111,13 @@ describe('App file intake', () => {
     expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
   });
 
-  it('enables initialization only after valid audio and MIDI are selected', async () => {
+  it('prepares valid files, then initializes the stage and enables transport only on launch', async () => {
     const user = userEvent.setup();
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:prepared-audio'),
+      revokeObjectURL: vi.fn(),
+    });
     render(<App />);
     const audio = new File(['audio'], 'demo.mp3', { type: 'audio/mpeg' });
     const source = new Midi();
@@ -126,6 +132,18 @@ describe('App file intake', () => {
       expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
     });
     expect(screen.getByRole('status')).toHaveTextContent('MIDI 摘要：1 个音轨 · 1 个音符 · 0.50 秒');
+    expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+    expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+    expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+    expect(hologramStageMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
+
+    expect(screen.getByRole('button', { name: '演出已初始化' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Play performance' })).toBeEnabled();
+    expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeEnabled();
+    expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
+    expect(hologramStageMock).toHaveBeenCalled();
   });
 
   it('enables real-time local export with selectable WebM and MP4 after audio and MIDI load', async () => {
@@ -159,6 +177,8 @@ describe('App file intake', () => {
       );
       await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'local.mid'));
 
+      expect(await screen.findByRole('button', { name: 'Start export' })).toBeDisabled();
+      await user.click(screen.getByRole('button', { name: '启动演出' }));
       expect(await screen.findByRole('button', { name: 'Start export' })).toBeEnabled();
       expect(screen.getByText(/实时导出/)).toBeInTheDocument();
       expect(screen.getByRole('combobox', { name: 'Export resolution' })).toHaveValue('720p');
@@ -218,7 +238,12 @@ describe('App file intake', () => {
     const source = new Midi();
     source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
     render(<App />);
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'locked-stage.ogg', { type: 'audio/ogg' }),
+    );
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'locked-stage.mid'));
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
 
     act(() => {
       useAppStore.getState().beginExport({
@@ -336,6 +361,44 @@ describe('App file intake', () => {
     expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
   });
 
+  it('shows the failed audio filename, decode reason, and replacement recovery, then clears it', async () => {
+    const user = userEvent.setup();
+    const audio = new DurationAudio(60);
+    vi.stubGlobal('Audio', vi.fn(() => audio));
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn()
+        .mockReturnValueOnce('blob:broken-audio')
+        .mockReturnValueOnce('blob:replacement-audio'),
+      revokeObjectURL: vi.fn(),
+    });
+    render(<App />);
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['broken'], '损坏的演出.wav', { type: 'audio/wav' }),
+    );
+    act(() => {
+      audio.error = { code: 3, message: 'DEMUXER_ERROR_COULD_NOT_OPEN' };
+      audio.dispatchEvent(new Event('error'));
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('损坏的演出.wav');
+    expect(alert).toHaveTextContent('浏览器无法解码');
+    expect(alert).toHaveTextContent('更换');
+    expect(alert).toHaveTextContent('重新编码');
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['replacement'], '替换音频.ogg', { type: 'audio/ogg' }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText(/损坏的演出\.wav/)).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('loads the licensed built-in demo from local URLs', async () => {
     const user = userEvent.setup();
     vi.stubGlobal('Audio', vi.fn(() => new FrameSampleAudio()));
@@ -364,6 +427,11 @@ describe('App file intake', () => {
     expect(screen.getByText('demo.mid')).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Calibration offset (seconds)' })).toHaveValue(0.125);
     expect(screen.getByRole('spinbutton', { name: 'Visual speed multiplier' })).toHaveValue(1.25);
+    expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+    expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
+
     expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ seed: 9234 });
   });
 
@@ -459,7 +527,12 @@ describe('App file intake', () => {
     const source = new Midi();
     source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
     render(<App />);
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'quality.ogg', { type: 'audio/ogg' }),
+    );
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'quality.mid'));
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
     await waitFor(() => expect(nextFrame).toBeDefined());
 
     act(() => nextFrame?.(0));
@@ -540,7 +613,12 @@ describe('App file intake', () => {
     useAppStore.getState().setSpeed(2);
     render(<App />);
 
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'stage.ogg', { type: 'audio/ogg' }),
+    );
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'stage.mid'));
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
 
     await waitFor(() => {
       expect(hologramStageMock).toHaveBeenCalled();
@@ -568,8 +646,17 @@ describe('App file intake', () => {
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
     const source = new Midi();
     source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:clock-audio'),
+      revokeObjectURL: vi.fn(),
+    });
     render(<App />);
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['audio'], 'clock.ogg', { type: 'audio/ogg' }),
+    );
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'clock.mid'));
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
     await waitFor(() => expect(nextFrame).toBeDefined());
     hologramStageMock.mockClear();
 
