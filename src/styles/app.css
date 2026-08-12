@@ -43,6 +43,7 @@ h1 { font-size: 1.55rem; }
 .input-error { margin: .45rem 0 0; color: #ff85d4; font-size: .86rem; line-height: 1.5; }
 
 .transport-controls { margin-top: 1.5rem; }
+.control-stack, .timeline-control-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
 .control-field { display: grid; gap: .45rem; margin-top: 1rem; color: #d8edff; font-size: .86rem; font-weight: 700; }
 .control-field input { width: 100%; padding: .55rem; border: 1px solid #315773; background: #07101f; color: #e8f8ff; }
 .control-field select { width: 100%; padding: .55rem; border: 1px solid #315773; background: #07101f; color: #e8f8ff; }
@@ -54,6 +55,14 @@ h1 { font-size: 1.55rem; }
 }
 .secondary-action { margin-top: .75rem; border-color: #8253b8; background: #19112a; }
 button:disabled { cursor: not-allowed; opacity: .45; }
+
+.export-panel { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgb(86 244 255 / 22%); }
+.export-panel h2 { font-size: 1rem; }
+.export-panel progress { width: 100%; accent-color: #57f4ff; }
+.download-action {
+  display: block; margin-top: .75rem; padding: .7rem; border: 1px solid #57f4ff;
+  color: #eaffff; text-align: center; text-decoration: none; font-weight: 700;
+}
 
 .stage-placeholder {
   display: grid; min-height: calc(100vh - 152px); place-content: center; text-align: center;

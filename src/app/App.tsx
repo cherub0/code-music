@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ControlPanel, type PreviewQuality } from '../features/controls/ControlPanel';
 import { Timeline } from '../features/controls/Timeline';
+import { detectExportCapabilities } from '../features/export/capabilities';
+import { ExportPanel, type PreparedExport } from '../features/export/ExportPanel';
 import { FilePanel } from '../features/files/FilePanel';
 import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes';
 import { readMidiBytes } from '../features/files/loadLocal';
@@ -10,7 +12,7 @@ import { DEFAULT_LAYOUT_OPTIONS, layoutScore } from '../features/score/layout';
 import { HologramStage } from '../features/stage/HologramStage';
 import { logicalTime } from '../features/transport/clock';
 import { useTransport } from '../features/transport/useTransport';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, type ExportLockOptions } from '../store/useAppStore';
 
 const DEFAULT_STAGE_SEED = 0x48f1a3;
 const MINIMUM_PREVIEW_FPS = 45;
@@ -64,8 +66,24 @@ function recoveryForMidiError(error: unknown): { message: string; recovery: stri
   return { message, recovery: 'Choose another MIDI file and try again.' };
 }
 
+export async function waitForCanvasSize(
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  maximumFrames = 120,
+): Promise<boolean> {
+  for (let frame = 0; frame < maximumFrames; frame += 1) {
+    if (canvas.width === width && canvas.height === height) return true;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  return canvas.width === width && canvas.height === height;
+}
+
 export function App() {
   const audio = useAppStore((state) => state.audio);
+  const beginExport = useAppStore((state) => state.beginExport);
+  const exportLock = useAppStore((state) => state.exportLock);
+  const finishExport = useAppStore((state) => state.finishExport);
   const midi = useAppStore((state) => state.midi);
   const offsetSeconds = useAppStore((state) => state.offsetSeconds);
   const speed = useAppStore((state) => state.speed);
@@ -90,6 +108,8 @@ export function App() {
   const [stageSeed, setStageSeed] = useState(DEFAULT_STAGE_SEED);
   const transport = useTransport(audioUrl);
   const [sampledAudioTime, setSampledAudioTime] = useState(() => transport.currentTime);
+  const [exportAudioTime, setExportAudioTime] = useState(0);
+  const exportCapabilities = useMemo(() => detectExportCapabilities(), []);
   const scoreLayout = useMemo(
     () => midiScore ? layoutScore(midiScore, DEFAULT_LAYOUT_OPTIONS) : null,
     [midiScore],
@@ -253,56 +273,105 @@ export function App() {
   };
 
   const canInitialize = audio !== null && midi !== null && midiScore !== null;
-  const performanceTime = logicalTime(sampledAudioTime, offsetSeconds, speed);
+  const lockedOffset = exportLock?.offsetSeconds ?? offsetSeconds;
+  const lockedSpeed = exportLock?.speed ?? speed;
+  const performanceTime = logicalTime(
+    exportLock ? exportAudioTime : sampledAudioTime,
+    lockedOffset,
+    lockedSpeed,
+  );
+
+  const prepareExport = async (settings: ExportLockOptions): Promise<PreparedExport> => {
+    cancelPendingDemo();
+    midiRequestRef.current += 1;
+    beginExport(settings);
+    setExportAudioTime(0);
+
+    const canvas = document.querySelector<HTMLCanvasElement>('.stage-view canvas');
+    if (!canvas) {
+      finishExport();
+      throw new Error('The stage canvas is not ready. Initialize the performance and try again.');
+    }
+    if (!await waitForCanvasSize(canvas, settings.width, settings.height)) {
+      finishExport();
+      throw new Error(`The stage could not switch to ${settings.width} × ${settings.height}. Try again or choose 720p.`);
+    }
+
+    return {
+      audio: transport.audioElement,
+      canvas,
+      onFrame: setExportAudioTime,
+    };
+  };
 
   return (
     <main className="app-shell">
       <aside className="control-panel" aria-label="文件和演出控制">
-        <FilePanel
+        <fieldset className="control-stack" disabled={exportLock !== null}>
+          <FilePanel
+            audioName={audio?.name ?? null}
+            midiName={midi?.name ?? null}
+            audioError={audioError}
+            midiError={midiError}
+            midiRecovery={midiRecovery}
+            midiSummary={midiScore ? midiSummaryFrom(midiScore) : null}
+            demoError={demoError}
+            demoLoading={demoLoading}
+            demoStatus={demoStatus}
+            durationWarning={durationWarning}
+            onAudioSelected={handleAudioSelected}
+            onDemoRequested={() => void handleDemoRequested()}
+            onMidiSelected={(file) => void handleMidiSelected(file)}
+          />
+          <ControlPanel
+            offsetSeconds={offsetSeconds}
+            previewQuality={previewQuality}
+            qualityNotice={qualityNotice}
+            speed={speed}
+            transportState={transport.state}
+            onOffsetChange={setOffsetSeconds}
+            onPreviewQualityChange={handlePreviewQualityChange}
+            onSpeedChange={setSpeed}
+            onTogglePlayback={() => {
+              if (transport.state === 'playing') transport.pause();
+              else void transport.play();
+            }}
+          />
+          <button className="primary-action" disabled={!canInitialize} type="button">
+            启动演出
+          </button>
+        </fieldset>
+        <ExportPanel
           audioName={audio?.name ?? null}
-          midiName={midi?.name ?? null}
-          audioError={audioError}
-          midiError={midiError}
-          midiRecovery={midiRecovery}
-          midiSummary={midiScore ? midiSummaryFrom(midiScore) : null}
-          demoError={demoError}
-          demoLoading={demoLoading}
-          demoStatus={demoStatus}
-          durationWarning={durationWarning}
-          onAudioSelected={handleAudioSelected}
-          onDemoRequested={() => void handleDemoRequested()}
-          onMidiSelected={(file) => void handleMidiSelected(file)}
-        />
-        <ControlPanel
-          offsetSeconds={offsetSeconds}
-          previewQuality={previewQuality}
-          qualityNotice={qualityNotice}
-          speed={speed}
-          transportState={transport.state}
-          onOffsetChange={setOffsetSeconds}
-          onPreviewQualityChange={handlePreviewQualityChange}
-          onSpeedChange={setSpeed}
-          onTogglePlayback={() => {
-            if (transport.state === 'playing') transport.pause();
-            else void transport.play();
+          capabilities={exportCapabilities}
+          durationSeconds={transport.duration}
+          ready={canInitialize && transport.duration > 0}
+          seed={stageSeed}
+          onPrepare={prepareExport}
+          onRestore={() => {
+            setExportAudioTime(0);
+            finishExport();
           }}
         />
-        <button className="primary-action" disabled={!canInitialize} type="button">
-          启动演出
-        </button>
-        <button className="secondary-action" disabled type="button">
-          导出视频（即将推出）
-        </button>
       </aside>
 
       {scoreLayout ? (
-        <section aria-label="Holographic performance stage" className="stage-view">
+        <section
+          aria-label="Holographic performance stage"
+          className="stage-view"
+          style={exportLock ? {
+            boxSizing: 'content-box',
+            height: exportLock.height,
+            minHeight: exportLock.height,
+            width: exportLock.width,
+          } : undefined}
+        >
           <HologramStage
             logicalTime={performanceTime}
             previewQuality={resolvedPreviewQuality}
-            quality="preview"
+            quality={exportLock?.quality ?? 'preview'}
             score={scoreLayout}
-            seed={stageSeed}
+            seed={exportLock?.seed ?? stageSeed}
           />
           <p className="stage-hud" aria-label="Logical performance time">
             LIVE / {performanceTime.toFixed(2)}s
@@ -317,14 +386,16 @@ export function App() {
         </section>
       )}
 
-      <Timeline
-        currentTime={transport.currentTime}
-        duration={transport.duration}
-        state={transport.state}
-        onPause={transport.pause}
-        onPlay={() => void transport.play()}
-        onSeek={transport.seek}
-      />
+      <fieldset className="timeline-control-lock" disabled={exportLock !== null}>
+        <Timeline
+          currentTime={transport.currentTime}
+          duration={transport.duration}
+          state={transport.state}
+          onPause={transport.pause}
+          onPlay={() => void transport.play()}
+          onSeek={transport.seek}
+        />
+      </fieldset>
     </main>
   );
 }

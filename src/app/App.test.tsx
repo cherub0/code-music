@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Midi } from '@tonejs/midi';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { App } from './App';
+import { App, waitForCanvasSize } from './App';
 import { useAppStore } from '../store/useAppStore';
 
 const { hologramStageMock, readMidiBytesMock } = vi.hoisted(() => ({
@@ -88,6 +88,7 @@ describe('App file intake', () => {
   });
 
   beforeEach(() => {
+    useAppStore.getState().finishExport();
     useAppStore.getState().setAudio(null);
     useAppStore.getState().setMidi(null);
     useAppStore.getState().setOffsetSeconds(0);
@@ -124,6 +125,94 @@ describe('App file intake', () => {
       expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
     });
     expect(screen.getByRole('status')).toHaveTextContent('MIDI 摘要：1 个音轨 · 1 个音符 · 0.50 秒');
+  });
+
+  it('enables real-time local export with selectable WebM and MP4 after audio and MIDI load', async () => {
+    const user = userEvent.setup();
+    const originalCaptureStream = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      'captureStream',
+    );
+    Object.defineProperty(HTMLCanvasElement.prototype, 'captureStream', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    class SupportedAudioContext {
+      createMediaStreamDestination() {}
+    }
+    class SupportedMediaRecorder {
+      static isTypeSupported() { return true; }
+    }
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
+    vi.stubGlobal('AudioContext', SupportedAudioContext);
+    vi.stubGlobal('MediaRecorder', SupportedMediaRecorder);
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 72, time: 0, duration: 1, velocity: 0.7 });
+
+    try {
+      render(<App />);
+      await user.upload(
+        screen.getByLabelText('选择音乐文件'),
+        new File(['audio'], 'local song.ogg', { type: 'audio/ogg' }),
+      );
+      await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'local.mid'));
+
+      expect(await screen.findByRole('button', { name: 'Start export' })).toBeEnabled();
+      expect(screen.getByText(/实时导出/)).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Export resolution' })).toHaveValue('720p');
+      expect(screen.getByRole('combobox', { name: 'Export format' })).toHaveValue('webm');
+      expect(screen.getByRole('option', { name: /MP4/ })).toBeEnabled();
+    } finally {
+      if (originalCaptureStream) {
+        Object.defineProperty(HTMLCanvasElement.prototype, 'captureStream', originalCaptureStream);
+      } else {
+        Reflect.deleteProperty(HTMLCanvasElement.prototype, 'captureStream');
+      }
+    }
+  });
+
+  it('waits for the Three.js backing buffer to reach the locked export resolution', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    let frame = 0;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      frame += 1;
+      if (frame === 3) {
+        canvas.width = 1920;
+        canvas.height = 1080;
+      }
+      queueMicrotask(() => callback(frame * 16));
+      return frame;
+    }));
+
+    await expect(waitForCanvasSize(canvas, 1920, 1080, 5)).resolves.toBe(true);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('locks the stage content box to the requested export dimensions', async () => {
+    const user = userEvent.setup();
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    render(<App />);
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'locked-stage.mid'));
+
+    act(() => {
+      useAppStore.getState().beginExport({
+        frameRate: 30,
+        height: 1080,
+        quality: 'export-1080p',
+        resolution: '1080p',
+        seed: 42,
+        width: 1920,
+      });
+    });
+
+    expect(screen.getByLabelText('Holographic performance stage')).toHaveStyle({
+      boxSizing: 'content-box',
+      height: '1080px',
+      width: '1920px',
+    });
   });
 
   it('keeps valid audio when the selected MIDI has no playable notes', async () => {
