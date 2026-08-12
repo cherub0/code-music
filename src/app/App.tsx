@@ -21,6 +21,7 @@ export function App() {
   const setMidi = useAppStore((state) => state.setMidi);
   const audioFileRef = useRef<File | null>(null);
   const midiFileRef = useRef<File | null>(null);
+  const midiRequestRef = useRef(0);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
@@ -38,6 +39,7 @@ export function App() {
   };
 
   const handleMidiSelected = async (file: File) => {
+    const requestId = ++midiRequestRef.current;
     const result = validateMidiFile(file);
     if (!result.ok) {
       setMidiError(result.message);
@@ -46,12 +48,14 @@ export function App() {
 
     try {
       const score = parseMidi(await readMidiBytes(file));
+      if (midiRequestRef.current !== requestId) return;
 
       midiFileRef.current = file;
       setMidi(metadataFrom(file));
       setMidiScore(score);
       setMidiError(null);
     } catch (error) {
+      if (midiRequestRef.current !== requestId) return;
       setMidiError(error instanceof Error ? error.message : 'MIDI 文件无法解析，请重新选择。');
     }
   };
