@@ -42,6 +42,23 @@ function readFileBytes(file: File): Promise<ArrayBuffer> {
   });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => { resolve = promiseResolve; });
+  return { promise, resolve };
+}
+
+function demoManifest() {
+  return [{
+    title: 'Project Signal Etude',
+    audioUrl: '/demo/demo.ogg',
+    midiUrl: '/demo/demo.mid',
+    offsetSeconds: 0.125,
+    speed: 1.25,
+    seed: 9234,
+  }];
+}
+
 class FrameSampleAudio extends EventTarget {
   currentTime = 0;
   duration = 60;
@@ -212,14 +229,7 @@ describe('App file intake', () => {
     vi.stubGlobal('Audio', vi.fn(() => new FrameSampleAudio()));
     const source = new Midi();
     source.addTrack().addNote({ midi: 64, time: 0, duration: 1, velocity: 0.7 });
-    const manifest = [{
-      title: 'Project Signal Etude',
-      audioUrl: '/demo/demo.ogg',
-      midiUrl: '/demo/demo.mid',
-      offsetSeconds: 0.125,
-      speed: 1.25,
-      seed: 9234,
-    }];
+    const manifest = demoManifest();
     const audioBlob = new Blob(['audio'], { type: 'audio/ogg' });
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/demo/manifest.json') return new Response(JSON.stringify(manifest));
@@ -245,7 +255,88 @@ describe('App file intake', () => {
     expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ seed: 9234 });
   });
 
-  it('reduces preview quality after 120 consecutive frames below 45 FPS and allows High restore', async () => {
+  it('cancels a pending demo when manual audio is selected and ignores late demo assets', async () => {
+    const user = userEvent.setup();
+    const audioResponse = deferred<Response>();
+    const midiResponse = deferred<Response>();
+    const demoMidi = new Midi();
+    demoMidi.addTrack().addNote({ midi: 64, time: 0, duration: 1, velocity: 0.7 });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/demo/manifest.json') return new Response(JSON.stringify(demoManifest()));
+      if (url === '/demo/demo.ogg') return audioResponse.promise;
+      if (url === '/demo/demo.mid') return midiResponse.promise;
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Load built-in demo' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole('button', { name: 'Loading built-in demo…' })).toBeDisabled();
+
+    await user.upload(
+      screen.getByLabelText('选择音乐文件'),
+      new File(['manual'], 'manual.ogg', { type: 'audio/ogg' }),
+    );
+    expect(screen.getByRole('button', { name: 'Load built-in demo' })).toBeEnabled();
+    expect(screen.getByText('manual.ogg')).toBeInTheDocument();
+
+    const lateAudioResponse = new Response(new Blob(['demo audio'], { type: 'audio/ogg' }));
+    const lateMidiResponse = new Response(midiBytes(demoMidi));
+    await act(async () => {
+      audioResponse.resolve(lateAudioResponse);
+      midiResponse.resolve(lateMidiResponse);
+      await Promise.all([audioResponse.promise, midiResponse.promise]);
+    });
+    await waitFor(() => {
+      expect(lateAudioResponse.bodyUsed).toBe(true);
+      expect(lateMidiResponse.bodyUsed).toBe(true);
+    });
+    expect(screen.queryByText('Project Signal Etude loaded.')).not.toBeInTheDocument();
+    expect(screen.queryByText('demo.mid')).not.toBeInTheDocument();
+  });
+
+  it('cancels a pending demo when manual MIDI is selected and ignores late demo assets', async () => {
+    const user = userEvent.setup();
+    const audioResponse = deferred<Response>();
+    const midiResponse = deferred<Response>();
+    const demoMidi = new Midi();
+    demoMidi.addTrack().addNote({ midi: 64, time: 0, duration: 1, velocity: 0.7 });
+    const manualMidi = new Midi();
+    manualMidi.addTrack().addNote({ midi: 72, time: 0, duration: 1, velocity: 0.6 });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/demo/manifest.json') return new Response(JSON.stringify(demoManifest()));
+      if (url === '/demo/demo.ogg') return audioResponse.promise;
+      if (url === '/demo/demo.mid') return midiResponse.promise;
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'Load built-in demo' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole('button', { name: 'Loading built-in demo…' })).toBeDisabled();
+
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(manualMidi, 'manual.mid'));
+    expect(await screen.findByText('manual.mid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load built-in demo' })).toBeEnabled();
+
+    const lateAudioResponse = new Response(new Blob(['demo audio'], { type: 'audio/ogg' }));
+    const lateMidiResponse = new Response(midiBytes(demoMidi));
+    await act(async () => {
+      audioResponse.resolve(lateAudioResponse);
+      midiResponse.resolve(lateMidiResponse);
+      await Promise.all([audioResponse.promise, midiResponse.promise]);
+    });
+    await waitFor(() => {
+      expect(lateAudioResponse.bodyUsed).toBe(true);
+      expect(lateMidiResponse.bodyUsed).toBe(true);
+    });
+    expect(screen.queryByText('Project Signal Etude loaded.')).not.toBeInTheDocument();
+    expect(screen.queryByText('demo.ogg')).not.toBeInTheDocument();
+  });
+
+  it('requires 120 consecutive slow intervals, resets after a healthy interval, and allows High restore', async () => {
     const user = userEvent.setup();
     let nextFrame: FrameRequestCallback | undefined;
     vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
@@ -259,9 +350,24 @@ describe('App file intake', () => {
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'quality.mid'));
     await waitFor(() => expect(nextFrame).toBeDefined());
 
+    act(() => nextFrame?.(0));
     act(() => {
-      for (let frame = 1; frame <= 121; frame += 1) nextFrame?.(frame * 25);
+      for (let interval = 1; interval <= 119; interval += 1) nextFrame?.(interval * 25);
     });
+    expect(screen.queryByRole('status', { name: 'Preview quality status' })).not.toBeInTheDocument();
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ previewQuality: 'high' });
+
+    const healthyTimestamp = 119 * 25 + 16;
+    act(() => nextFrame?.(healthyTimestamp));
+    act(() => {
+      for (let interval = 1; interval <= 119; interval += 1) {
+        nextFrame?.(healthyTimestamp + interval * 25);
+      }
+    });
+    expect(screen.queryByRole('status', { name: 'Preview quality status' })).not.toBeInTheDocument();
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ previewQuality: 'high' });
+
+    act(() => nextFrame?.(healthyTimestamp + 120 * 25));
 
     expect(await screen.findByRole('status', { name: 'Preview quality status' })).toHaveTextContent(
       'bloom resolution and the visible note window were reduced',

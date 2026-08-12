@@ -73,6 +73,7 @@ export function App() {
   const setMidi = useAppStore((state) => state.setMidi);
   const setOffsetSeconds = useAppStore((state) => state.setOffsetSeconds);
   const setSpeed = useAppStore((state) => state.setSpeed);
+  const demoRequestRef = useRef(0);
   const midiRequestRef = useRef(0);
   const previousFrameTimestampRef = useRef<number | null>(null);
   const slowFrameCountRef = useRef(0);
@@ -145,7 +146,13 @@ export function App() {
     setPreviewQuality(quality);
   };
 
+  const cancelPendingDemo = () => {
+    demoRequestRef.current += 1;
+    setDemoLoading(false);
+  };
+
   const handleAudioSelected = (file: File) => {
+    cancelPendingDemo();
     const result = validateAudioFile(file);
     if (!result.ok) {
       setAudioError(result.message);
@@ -161,6 +168,7 @@ export function App() {
   };
 
   const handleMidiSelected = async (file: File) => {
+    cancelPendingDemo();
     const requestId = ++midiRequestRef.current;
     const result = validateMidiFile(file);
     if (!result.ok) {
@@ -193,7 +201,8 @@ export function App() {
   };
 
   const handleDemoRequested = async () => {
-    const requestId = ++midiRequestRef.current;
+    const requestId = ++demoRequestRef.current;
+    midiRequestRef.current += 1;
     setDemoLoading(true);
     setDemoError(null);
     setDemoStatus(null);
@@ -213,7 +222,7 @@ export function App() {
         midiResponse.arrayBuffer(),
       ]);
       const score = parseMidi(midiBytes);
-      if (midiRequestRef.current !== requestId) return;
+      if (demoRequestRef.current !== requestId) return;
 
       setAudio({
         name: fileNameFromUrl(demo.audioUrl),
@@ -235,10 +244,11 @@ export function App() {
       setStageSeed(demo.seed);
       setDemoStatus(`${demo.title} loaded.`);
     } catch (error) {
+      if (demoRequestRef.current !== requestId) return;
       const detail = error instanceof Error ? error.message : 'Unknown demo error.';
       setDemoError(`The built-in demo could not be loaded. Check the local demo files and try again. ${detail}`);
     } finally {
-      if (midiRequestRef.current === requestId) setDemoLoading(false);
+      if (demoRequestRef.current === requestId) setDemoLoading(false);
     }
   };
 
