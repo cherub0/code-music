@@ -114,4 +114,13 @@ describe('App file intake', () => {
     });
     expect(screen.queryByText('older.mid')).not.toBeInTheDocument();
   });
+
+  it('provides calibration controls and an absolute timeline before files are selected', () => {
+    render(<App />);
+
+    expect(screen.getByRole('spinbutton', { name: 'Calibration offset (seconds)' })).toHaveValue(0);
+    expect(screen.getByRole('spinbutton', { name: 'Visual speed multiplier' })).toHaveValue(1);
+    expect(screen.getByRole('slider', { name: 'Timeline position' })).toHaveValue('0');
+    expect(screen.getAllByText('00:00')).toHaveLength(2);
+  });
 });

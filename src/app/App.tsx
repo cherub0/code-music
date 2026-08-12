@@ -1,13 +1,21 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ControlPanel } from '../features/controls/ControlPanel';
+import { Timeline } from '../features/controls/Timeline';
 import { FilePanel } from '../features/files/FilePanel';
 import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes';
 import { readMidiBytes } from '../features/files/loadLocal';
 import { parseMidi } from '../features/midi/parseMidi';
 import type { NormalizedScore } from '../features/midi/types';
+import { logicalTime } from '../features/transport/clock';
+import { useTransport } from '../features/transport/useTransport';
 import { useAppStore } from '../store/useAppStore';
 
 function metadataFrom(file: File) {
   return { name: file.name, size: file.size, type: file.type };
+}
+
+function createAudioUrl(file: File): string | null {
+  return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null;
 }
 
 function midiSummaryFrom(score: NormalizedScore): string {
@@ -17,14 +25,28 @@ function midiSummaryFrom(score: NormalizedScore): string {
 export function App() {
   const audio = useAppStore((state) => state.audio);
   const midi = useAppStore((state) => state.midi);
+  const offsetSeconds = useAppStore((state) => state.offsetSeconds);
+  const speed = useAppStore((state) => state.speed);
   const setAudio = useAppStore((state) => state.setAudio);
   const setMidi = useAppStore((state) => state.setMidi);
+  const setOffsetSeconds = useAppStore((state) => state.setOffsetSeconds);
+  const setSpeed = useAppStore((state) => state.setSpeed);
   const audioFileRef = useRef<File | null>(null);
   const midiFileRef = useRef<File | null>(null);
   const midiRequestRef = useRef(0);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
+  const transport = useTransport(audioUrl);
+
+  useEffect(() => () => {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+  }, [audioUrl]);
+
+  useEffect(() => {
+    transport.setSpeed(speed);
+  }, [speed, transport.setSpeed]);
 
   const handleAudioSelected = (file: File) => {
     const result = validateAudioFile(file);
@@ -35,6 +57,7 @@ export function App() {
 
     audioFileRef.current = file;
     setAudio(metadataFrom(file));
+    setAudioUrl(createAudioUrl(file));
     setAudioError(null);
   };
 
@@ -61,6 +84,7 @@ export function App() {
   };
 
   const canInitialize = audio !== null && midi !== null && midiScore !== null;
+  const performanceTime = logicalTime(transport.currentTime, offsetSeconds, speed);
 
   return (
     <main className="app-shell">
@@ -74,6 +98,17 @@ export function App() {
           onAudioSelected={handleAudioSelected}
           onMidiSelected={handleMidiSelected}
         />
+        <ControlPanel
+          offsetSeconds={offsetSeconds}
+          speed={speed}
+          transportState={transport.state}
+          onOffsetChange={setOffsetSeconds}
+          onSpeedChange={setSpeed}
+          onTogglePlayback={() => {
+            if (transport.state === 'playing') transport.pause();
+            else void transport.play();
+          }}
+        />
         <button className="primary-action" disabled={!canInitialize} type="button">
           启动演出
         </button>
@@ -86,13 +121,17 @@ export function App() {
         <p className="eyebrow">STAGE / STANDBY</p>
         <h2 id="stage-title">等待本地音频与 MIDI</h2>
         <p>选择两个有效文件后即可初始化演出预览。</p>
+        <p aria-label="Logical performance time">Logical time: {performanceTime.toFixed(2)}s</p>
       </section>
 
-      <section aria-label="时间轴占位" className="timeline-placeholder">
-        <span>00:00</span>
-        <div aria-hidden="true" className="timeline-track"><i /></div>
-        <span>--:--</span>
-      </section>
+      <Timeline
+        currentTime={transport.currentTime}
+        duration={transport.duration}
+        state={transport.state}
+        onPause={transport.pause}
+        onPlay={() => void transport.play()}
+        onSeek={transport.seek}
+      />
     </main>
   );
 }

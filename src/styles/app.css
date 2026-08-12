@@ -42,6 +42,11 @@ h1 { font-size: 1.55rem; }
 .file-status { min-height: 1.5rem; margin: .55rem 0 0; font-size: .8rem; overflow-wrap: anywhere; }
 .input-error { margin: .45rem 0 0; color: #ff85d4; font-size: .86rem; line-height: 1.5; }
 
+.transport-controls { margin-top: 1.5rem; }
+.control-field { display: grid; gap: .45rem; margin-top: 1rem; color: #d8edff; font-size: .86rem; font-weight: 700; }
+.control-field input { width: 100%; padding: .55rem; border: 1px solid #315773; background: #07101f; color: #e8f8ff; }
+.control-hint { margin: .8rem 0 0; color: #a9bed1; font-size: .78rem; line-height: 1.5; }
+
 .primary-action, .secondary-action {
   width: 100%; margin-top: 1.25rem; padding: .8rem 1rem; border: 1px solid #57f4ff;
   background: #08293b; color: #eaffff; cursor: pointer; font-weight: 700; letter-spacing: .06em;
@@ -66,3 +71,4 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 }
 .timeline-track { flex: 1; height: 4px; background: #29425f; }
 .timeline-track i { display: block; width: 8%; height: 100%; background: #57f4ff; box-shadow: 0 0 12px #57f4ff; }
+.timeline-slider { flex: 1; accent-color: #57f4ff; }
