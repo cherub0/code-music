@@ -16,6 +16,7 @@ type CapabilityHost = {
   HTMLCanvasElement?: { prototype?: { captureStream?: unknown } };
   MediaRecorder?: { isTypeSupported?: (mimeType: string) => boolean };
   WebAssembly?: unknown;
+  Worker?: unknown;
   webkitAudioContext?: { prototype?: { createMediaStreamDestination?: unknown } };
 };
 
@@ -34,7 +35,7 @@ export function detectExportCapabilities(
   return {
     audio,
     mimeType,
-    mp4: webm && typeof host.WebAssembly === 'object',
+    mp4: webm && typeof host.WebAssembly === 'object' && typeof host.Worker === 'function',
     webm,
   };
 }

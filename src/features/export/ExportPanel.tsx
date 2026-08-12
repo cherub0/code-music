@@ -17,7 +17,7 @@ type ExportPanelProps = {
   audioName: string | null;
   capabilities: ExportCapabilities;
   durationSeconds: number;
-  onPrepare: (settings: ExportLockOptions) => Promise<PreparedExport>;
+  onPrepare: (settings: ExportLockOptions, signal: AbortSignal) => Promise<PreparedExport>;
   onRestore: () => void | Promise<void>;
   ready: boolean;
   record?: (options: RecordOptions) => Promise<Blob>;
@@ -117,7 +117,7 @@ export function ExportPanel({
     };
 
     try {
-      const prepared = await onPrepare(settings);
+      const prepared = await onPrepare(settings, controller.signal);
       const webm = await record({
         ...prepared,
         durationSeconds,

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, type ExportLockOptions } from '../../store/useAppStore';
 import { detectExportCapabilities } from './capabilities';
 import { ExportPanel } from './ExportPanel';
 import { ExportCancelled, recordWebm, type RecordEnvironment } from './recordWebm';
@@ -59,6 +59,7 @@ class FakeMediaStream {
 
 class FakeMediaRecorder {
   static isTypeSupported = vi.fn(() => true);
+  static lastRecorder: FakeMediaRecorder | null = null;
   static lastStream: FakeMediaStream | null = null;
   state: RecordingState = 'inactive';
   ondataavailable: ((event: BlobEvent) => void) | null = null;
@@ -66,6 +67,7 @@ class FakeMediaRecorder {
   onstop: (() => void) | null = null;
 
   constructor(stream: FakeMediaStream) {
+    FakeMediaRecorder.lastRecorder = this;
     FakeMediaRecorder.lastStream = stream;
   }
 
@@ -83,6 +85,8 @@ class FakeMediaRecorder {
 }
 
 function cancellationFixture() {
+  FakeMediaRecorder.lastRecorder = null;
+  FakeMediaRecorder.lastStream = null;
   const videoTrack = new FakeTrack('video');
   const audioTrack = new FakeTrack('audio');
   const videoStream = new FakeMediaStream([videoTrack]);
@@ -156,6 +160,24 @@ describe('export browser boundaries', () => {
     });
   });
 
+  it('keeps WebM enabled but disables MP4 when Worker is unavailable', () => {
+    const hostWithoutWorker = {
+      AudioContext: { prototype: { createMediaStreamDestination() {} } },
+      HTMLCanvasElement: { prototype: { captureStream() {} } },
+      MediaRecorder: { isTypeSupported: () => true },
+      WebAssembly: {},
+    };
+
+    expect(detectExportCapabilities(hostWithoutWorker)).toMatchObject({
+      mp4: false,
+      webm: true,
+    });
+    expect(detectExportCapabilities({
+      ...hostWithoutWorker,
+      Worker: class FakeWorker {},
+    })).toMatchObject({ mp4: true, webm: true });
+  });
+
   it('stops capture tracks and restores preview state when aborted', async () => {
     const fixture = cancellationFixture();
     const controller = new AbortController();
@@ -205,6 +227,39 @@ describe('export browser boundaries', () => {
     expect(result.size).toBeGreaterThan(0);
     expect(FakeMediaRecorder.lastStream?.getVideoTracks()).toHaveLength(1);
     expect(FakeMediaRecorder.lastStream?.getAudioTracks()).toHaveLength(1);
+    expect(fixture.videoTrack.stop).toHaveBeenCalledOnce();
+    expect(fixture.audioTrack.stop).toHaveBeenCalledOnce();
+    expect(fixture.sourceNode.disconnect).toHaveBeenCalledOnce();
+    expect(fixture.destination.disconnect).toHaveBeenCalledOnce();
+    expect(fixture.audioContext.close).toHaveBeenCalledOnce();
+    expect(fixture.environment.cancelAnimationFrame).toHaveBeenCalledWith(1);
+    expect(fixture.previewAudio.currentTime).toBe(4.25);
+    expect(fixture.previewAudio.play).toHaveBeenCalledOnce();
+  });
+
+  it('releases capture resources and restores preview after MediaRecorder errors', async () => {
+    const fixture = cancellationFixture();
+    const promise = recordWebm({
+      audio: fixture.previewAudio,
+      canvas: { captureStream: vi.fn(() => fixture.videoStream) } as unknown as HTMLCanvasElement,
+      durationSeconds: 10,
+      environment: fixture.environment,
+      frameRate: 30,
+      signal: new AbortController().signal,
+    });
+    await vi.waitFor(() => expect(FakeMediaRecorder.lastRecorder?.state).toBe('recording'));
+
+    FakeMediaRecorder.lastRecorder?.onerror?.(new Event('error'));
+
+    await expect(promise).rejects.toThrow('The browser stopped recording unexpectedly.');
+    expect(fixture.videoTrack.stop).toHaveBeenCalledOnce();
+    expect(fixture.audioTrack.stop).toHaveBeenCalledOnce();
+    expect(fixture.sourceNode.disconnect).toHaveBeenCalledOnce();
+    expect(fixture.destination.disconnect).toHaveBeenCalledOnce();
+    expect(fixture.audioContext.close).toHaveBeenCalledOnce();
+    expect(fixture.environment.cancelAnimationFrame).toHaveBeenCalledWith(1);
+    expect(fixture.previewAudio.currentTime).toBe(4.25);
+    expect(fixture.previewAudio.play).toHaveBeenCalledOnce();
   });
 
   it('stops the canvas track when Web Audio unexpectedly provides no track', async () => {
@@ -341,5 +396,33 @@ describe('MP4 transcode and recovery', () => {
     expect(fallback).toHaveAttribute('href', 'blob:video/webm');
     expect(fallback.getAttribute('download')).toMatch(/^My-Unsafe-Song-720p-\d{8}T\d{6}\.webm$/);
     await waitFor(() => expect(restore).toHaveBeenCalledOnce());
+  });
+
+  it('cancels preparation promptly and restores the unlocked app state', async () => {
+    const user = userEvent.setup();
+    const record = vi.fn();
+    const onPrepare = vi.fn((settings: ExportLockOptions, signal: AbortSignal) => {
+      useAppStore.getState().beginExport(settings);
+      return new Promise<never>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new ExportCancelled()), { once: true });
+      });
+    });
+    render(createElement(ExportPanel, {
+      audioName: 'waiting.ogg',
+      capabilities: { audio: true, mimeType: 'video/webm', mp4: true, webm: true },
+      durationSeconds: 10,
+      ready: true,
+      record,
+      onPrepare,
+      onRestore: () => useAppStore.getState().finishExport(),
+    }));
+
+    await user.click(screen.getByRole('button', { name: 'Start export' }));
+    await waitFor(() => expect(useAppStore.getState().exportLock).not.toBeNull());
+    await user.click(screen.getByRole('button', { name: 'Cancel export' }));
+
+    expect(await screen.findByText(/Export cancelled/)).toBeInTheDocument();
+    expect(record).not.toHaveBeenCalled();
+    expect(useAppStore.getState().exportLock).toBeNull();
   });
 });

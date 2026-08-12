@@ -4,6 +4,7 @@ import { Midi } from '@tonejs/midi';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App, waitForCanvasSize } from './App';
 import { useAppStore } from '../store/useAppStore';
+import { ExportCancelled } from '../features/export/recordWebm';
 
 const { hologramStageMock, readMidiBytesMock } = vi.hoisted(() => ({
   hologramStageMock: vi.fn((_props: unknown) => null),
@@ -146,6 +147,7 @@ describe('App file intake', () => {
     vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
     vi.stubGlobal('AudioContext', SupportedAudioContext);
     vi.stubGlobal('MediaRecorder', SupportedMediaRecorder);
+    vi.stubGlobal('Worker', class SupportedWorker {});
     const source = new Midi();
     source.addTrack().addNote({ midi: 72, time: 0, duration: 1, velocity: 0.7 });
 
@@ -186,8 +188,29 @@ describe('App file intake', () => {
       return frame;
     }));
 
-    await expect(waitForCanvasSize(canvas, 1920, 1080, 5)).resolves.toBe(true);
+    await expect(waitForCanvasSize(
+      canvas,
+      1920,
+      1080,
+      new AbortController().signal,
+      5,
+    )).resolves.toBe(true);
     expect(requestAnimationFrame).toHaveBeenCalledTimes(3);
+  });
+
+  it('cancels the pending canvas frame when export preparation is aborted', async () => {
+    const canvas = document.createElement('canvas');
+    const controller = new AbortController();
+    const removeAbortListener = vi.spyOn(controller.signal, 'removeEventListener');
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 41));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    const pending = waitForCanvasSize(canvas, 1920, 1080, controller.signal, 120);
+    controller.abort();
+
+    await expect(pending).rejects.toBeInstanceOf(ExportCancelled);
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
+    expect(removeAbortListener).toHaveBeenCalledWith('abort', expect.any(Function));
   });
 
   it('locks the stage content box to the requested export dimensions', async () => {

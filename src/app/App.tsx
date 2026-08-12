@@ -3,6 +3,7 @@ import { ControlPanel, type PreviewQuality } from '../features/controls/ControlP
 import { Timeline } from '../features/controls/Timeline';
 import { detectExportCapabilities } from '../features/export/capabilities';
 import { ExportPanel, type PreparedExport } from '../features/export/ExportPanel';
+import { ExportCancelled } from '../features/export/recordWebm';
 import { FilePanel } from '../features/files/FilePanel';
 import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes';
 import { readMidiBytes } from '../features/files/loadLocal';
@@ -70,12 +71,34 @@ export async function waitForCanvasSize(
   canvas: HTMLCanvasElement,
   width: number,
   height: number,
+  signal: AbortSignal,
   maximumFrames = 120,
 ): Promise<boolean> {
   for (let frame = 0; frame < maximumFrames; frame += 1) {
+    if (signal.aborted) throw new ExportCancelled();
     if (canvas.width === width && canvas.height === height) return true;
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve, reject) => {
+      let animationFrame = 0;
+      let settled = false;
+      const cleanup = () => signal.removeEventListener('abort', handleAbort);
+      const handleAbort = () => {
+        if (settled) return;
+        settled = true;
+        cancelAnimationFrame(animationFrame);
+        cleanup();
+        reject(new ExportCancelled());
+      };
+      signal.addEventListener('abort', handleAbort, { once: true });
+      animationFrame = requestAnimationFrame(() => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve();
+      });
+      if (signal.aborted) handleAbort();
+    });
   }
+  if (signal.aborted) throw new ExportCancelled();
   return canvas.width === width && canvas.height === height;
 }
 
@@ -281,7 +304,10 @@ export function App() {
     lockedSpeed,
   );
 
-  const prepareExport = async (settings: ExportLockOptions): Promise<PreparedExport> => {
+  const prepareExport = async (
+    settings: ExportLockOptions,
+    signal: AbortSignal,
+  ): Promise<PreparedExport> => {
     cancelPendingDemo();
     midiRequestRef.current += 1;
     beginExport(settings);
@@ -292,7 +318,7 @@ export function App() {
       finishExport();
       throw new Error('The stage canvas is not ready. Initialize the performance and try again.');
     }
-    if (!await waitForCanvasSize(canvas, settings.width, settings.height)) {
+    if (!await waitForCanvasSize(canvas, settings.width, settings.height, signal)) {
       finishExport();
       throw new Error(`The stage could not switch to ${settings.width} × ${settings.height}. Try again or choose 720p.`);
     }
