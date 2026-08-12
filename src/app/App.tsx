@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ControlPanel } from '../features/controls/ControlPanel';
 import { Timeline } from '../features/controls/Timeline';
 import { FilePanel } from '../features/files/FilePanel';
@@ -6,6 +6,8 @@ import { validateAudioFile, validateMidiFile } from '../features/files/fileTypes
 import { readMidiBytes } from '../features/files/loadLocal';
 import { parseMidi } from '../features/midi/parseMidi';
 import type { NormalizedScore } from '../features/midi/types';
+import { DEFAULT_LAYOUT_OPTIONS, layoutScore } from '../features/score/layout';
+import { HologramStage } from '../features/stage/HologramStage';
 import { logicalTime } from '../features/transport/clock';
 import { useTransport } from '../features/transport/useTransport';
 import { useAppStore } from '../store/useAppStore';
@@ -39,6 +41,11 @@ export function App() {
   const [midiError, setMidiError] = useState<string | null>(null);
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
   const transport = useTransport(audioUrl);
+  const [sampledAudioTime, setSampledAudioTime] = useState(() => transport.currentTime);
+  const scoreLayout = useMemo(
+    () => midiScore ? layoutScore(midiScore, DEFAULT_LAYOUT_OPTIONS) : null,
+    [midiScore],
+  );
 
   useEffect(() => () => {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
@@ -47,6 +54,16 @@ export function App() {
   useEffect(() => {
     transport.setSpeed(speed);
   }, [speed, transport.setSpeed]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+    const sampleClock = () => {
+      setSampledAudioTime(transport.audioElement.currentTime || 0);
+      animationFrame = requestAnimationFrame(sampleClock);
+    };
+    sampleClock();
+    return () => cancelAnimationFrame(animationFrame);
+  }, [transport.audioElement]);
 
   const handleAudioSelected = (file: File) => {
     const result = validateAudioFile(file);
@@ -84,7 +101,7 @@ export function App() {
   };
 
   const canInitialize = audio !== null && midi !== null && midiScore !== null;
-  const performanceTime = logicalTime(transport.currentTime, offsetSeconds, speed);
+  const performanceTime = logicalTime(sampledAudioTime, offsetSeconds, speed);
 
   return (
     <main className="app-shell">
@@ -117,12 +134,21 @@ export function App() {
         </button>
       </aside>
 
-      <section aria-labelledby="stage-title" className="stage-placeholder">
-        <p className="eyebrow">STAGE / STANDBY</p>
-        <h2 id="stage-title">等待本地音频与 MIDI</h2>
-        <p>选择两个有效文件后即可初始化演出预览。</p>
-        <p aria-label="Logical performance time">Logical time: {performanceTime.toFixed(2)}s</p>
-      </section>
+      {scoreLayout ? (
+        <section aria-label="Holographic performance stage" className="stage-view">
+          <HologramStage score={scoreLayout} logicalTime={performanceTime} quality="preview" />
+          <p className="stage-hud" aria-label="Logical performance time">
+            LIVE / {performanceTime.toFixed(2)}s
+          </p>
+        </section>
+      ) : (
+        <section aria-labelledby="stage-title" className="stage-placeholder">
+          <p className="eyebrow">STAGE / STANDBY</p>
+          <h2 id="stage-title">等待本地音频与 MIDI</h2>
+          <p>选择两个有效文件后即可初始化演出预览。</p>
+          <p aria-label="Logical performance time">Logical time: {performanceTime.toFixed(2)}s</p>
+        </section>
+      )}
 
       <Timeline
         currentTime={transport.currentTime}

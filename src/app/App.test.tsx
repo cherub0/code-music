@@ -1,11 +1,22 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Midi } from '@tonejs/midi';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { useAppStore } from '../store/useAppStore';
 
-const { readMidiBytesMock } = vi.hoisted(() => ({ readMidiBytesMock: vi.fn() }));
+const { hologramStageMock, readMidiBytesMock } = vi.hoisted(() => ({
+  hologramStageMock: vi.fn((_props: unknown) => null),
+  readMidiBytesMock: vi.fn(),
+}));
+
+vi.mock('@react-three/fiber', () => ({
+  Canvas: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('../features/stage/HologramStage', () => ({
+  HologramStage: hologramStageMock,
+}));
 
 vi.mock('../features/files/loadLocal', () => ({
   readMidiBytes: readMidiBytesMock,
@@ -31,10 +42,26 @@ function readFileBytes(file: File): Promise<ArrayBuffer> {
   });
 }
 
+class FrameSampleAudio extends EventTarget {
+  currentTime = 0;
+  duration = 60;
+  src = '';
+  readonly load = vi.fn();
+  readonly pause = vi.fn();
+  readonly play = vi.fn(async () => undefined);
+}
+
 describe('App file intake', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     useAppStore.getState().setAudio(null);
     useAppStore.getState().setMidi(null);
+    useAppStore.getState().setOffsetSeconds(0);
+    useAppStore.getState().setSpeed(1);
+    hologramStageMock.mockClear();
     readMidiBytesMock.mockReset();
     readMidiBytesMock.mockImplementation(readFileBytes);
   });
@@ -122,5 +149,52 @@ describe('App file intake', () => {
     expect(screen.getByRole('spinbutton', { name: 'Visual speed multiplier' })).toHaveValue(1);
     expect(screen.getByRole('slider', { name: 'Timeline position' })).toHaveValue('0');
     expect(screen.getAllByText('00:00')).toHaveLength(2);
+  });
+
+  it('passes the loaded score layout and absolute logical time to the holographic stage', async () => {
+    const user = userEvent.setup();
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 67, time: 0, duration: 0.75, velocity: 0.8 });
+    useAppStore.getState().setOffsetSeconds(-1);
+    useAppStore.getState().setSpeed(2);
+    render(<App />);
+
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'stage.mid'));
+
+    await waitFor(() => {
+      expect(hologramStageMock).toHaveBeenCalled();
+    });
+    const props = hologramStageMock.mock.lastCall?.[0];
+    expect(props).toMatchObject({
+      logicalTime: 2,
+      quality: 'preview',
+      score: {
+        durationSeconds: 0.75,
+        notes: [{ position: { x: 0, y: 1.26, z: 0 } }],
+      },
+    });
+  });
+
+  it('samples the audio master clock at display cadence for the stage', async () => {
+    const user = userEvent.setup();
+    const audio = new FrameSampleAudio();
+    let nextFrame: FrameRequestCallback | undefined;
+    vi.stubGlobal('Audio', vi.fn(() => audio));
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      nextFrame = callback;
+      return 1;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    render(<App />);
+    await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'clock.mid'));
+    await waitFor(() => expect(nextFrame).toBeDefined());
+    hologramStageMock.mockClear();
+
+    audio.currentTime = 4.25;
+    act(() => nextFrame?.(16));
+
+    expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ logicalTime: 4.25 });
   });
 });
