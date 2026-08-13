@@ -21,6 +21,8 @@ export type PositionedNote = NoteEvent & {
   trailLength: number;
 };
 
+export type ScoreNote = PositionedNote;
+
 export type ScoreLayout = {
   durationSeconds: number;
   notes: PositionedNote[];
