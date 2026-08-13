@@ -1,38 +1,119 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { Color, Matrix4, type InstancedMesh } from 'three';
 import type { DirectorState } from '../performance/director';
 import { mulberry32 } from '../performance/seed';
+import type { CityLayout, CityVector } from './cityLayout';
+import { buildCityLayout } from './cityLayout';
 import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 
-type Tower = { position: [number,number,number]; scale: [number,number,number]; magenta: boolean; side: number };
+const CITY_SEED = 0xc17b3;
+const CYAN = new Color('#20e8ff');
+const MAGENTA = new Color('#ff159f');
 
-export function cyberpunkTowerLayout(duration: number): Tower[] {
-  const r=mulberry32(0xc17b3);
-  const travelLength=Math.max(32,duration*1.5+18);
-  return Array.from({length:28},(_,i)=>{
-    const side=i%2?1:-1;
-    return {
-      position:[side*(5+r()*6),-4+r()*2,4+(i/27)*travelLength+r()*5] as [number,number,number],
-      scale:[1.5+r()*3,5+r()*11,2+r()*3] as [number,number,number],
-      magenta:i%4===0,
-      side,
-    };
-  });
+type TransformRecord = { position: CityVector; scale: CityVector };
+
+export function cinematicCityLayout(duration: number, density: 'high' | 'low'): CityLayout {
+  return buildCityLayout(duration, CITY_SEED, density);
+}
+
+function useInstanceMatrices(records: TransformRecord[]) {
+  const meshRef = useRef<InstancedMesh>(null);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    const matrix = new Matrix4();
+    records.forEach((record, index) => {
+      matrix.makeScale(...record.scale).setPosition(...record.position);
+      mesh.setMatrixAt(index, matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [records]);
+
+  return meshRef;
+}
+
+function CityBuildings({ buildings }: Pick<CityLayout, 'buildings'>) {
+  const meshRef = useInstanceMatrices(buildings);
+
+  return <instancedMesh ref={meshRef} args={[undefined, undefined, buildings.length]} frustumCulled={false}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial color="#01030a" metalness={0.9} roughness={0.24} />
+  </instancedMesh>;
+}
+
+function CityLightStrips({ lightStrips }: Pick<CityLayout, 'lightStrips'>) {
+  const meshRef = useInstanceMatrices(lightStrips);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    lightStrips.forEach((strip, index) => mesh.setColorAt(index, strip.magenta ? MAGENTA : CYAN));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [lightStrips, meshRef]);
+
+  return <instancedMesh ref={meshRef} args={[undefined, undefined, lightStrips.length]} frustumCulled={false}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshBasicMaterial vertexColors toneMapped={false} />
+  </instancedMesh>;
+}
+
+function CityRoadSegments({ roadSegments }: Pick<CityLayout, 'roadSegments'>) {
+  const meshRef = useInstanceMatrices(roadSegments);
+
+  return <instancedMesh ref={meshRef} args={[undefined, undefined, roadSegments.length]} frustumCulled={false}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial color="#06111b" metalness={0.82} roughness={0.36} />
+  </instancedMesh>;
+}
+
+function TrafficTrails({ trafficTrails }: Pick<CityLayout, 'trafficTrails'>) {
+  const meshRef = useInstanceMatrices(trafficTrails);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    trafficTrails.forEach((trail, index) => mesh.setColorAt(index, trail.magenta ? MAGENTA : CYAN));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [meshRef, trafficTrails]);
+
+  return <instancedMesh ref={meshRef} args={[undefined, undefined, trafficTrails.length]} frustumCulled={false}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshBasicMaterial vertexColors toneMapped={false} />
+  </instancedMesh>;
 }
 
 export function CinematicLighting({ duration, state, previewQuality, quality }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality }) {
   const low = quality === 'preview' && previewQuality === 'low';
-  const particles = useMemo(() => { const r=mulberry32(0xa7105); return Array.from({length:low?40:96},()=>[(r()-.5)*40,(r()-.5)*22,r()*90] as [number,number,number]); },[low]);
-  const towers = useMemo(() => cyberpunkTowerLayout(duration),[duration]);
+  const particles = useMemo(() => {
+    const random = mulberry32(0xa7105);
+    return Array.from({ length: low ? 40 : 96 }, () => [
+      (random() - 0.5) * 40,
+      (random() - 0.5) * 22,
+      random() * 90,
+    ] as CityVector);
+  }, [low]);
+  const city = useMemo(() => cinematicCityLayout(duration, low ? 'low' : 'high'), [duration, low]);
+
   return <group>
     <ambientLight color="#020611" intensity={0.18 + state.atmosphere * 0.15}/>
     <pointLight color="#48f5ff" intensity={12 * state.cyan} position={[-7,5,-2]} distance={45}/>
     <pointLight color="#ff35bd" intensity={10 * state.magenta} position={[7,-2,4]} distance={48}/>
-    {!low && <spotLight color="#a7fbff" intensity={18*state.cyan} position={[0,7,-7]} angle={0.35} penumbra={0.7}/>} 
-    {towers.map((tower,i)=><group key={`tower-${i}`} position={tower.position}>
-      <mesh scale={tower.scale}><boxGeometry args={[1,1,1]}/><meshStandardMaterial color="#01030a" emissive={tower.magenta?'#090007':'#001016'} emissiveIntensity={0.7} metalness={0.9} roughness={0.24}/></mesh>
-      <mesh position={[-tower.side*tower.scale[0]*.51,0,0]} scale={[.035,tower.scale[1]*.62,.055]}><boxGeometry args={[1,1,1]}/><meshBasicMaterial color={tower.magenta?'#ff159f':'#20e8ff'} toneMapped={false}/></mesh>
-      <mesh position={[0,tower.scale[1]*.48,0]} scale={[tower.scale[0]*.8,.035,tower.scale[2]*.76]}><boxGeometry args={[1,1,1]}/><meshBasicMaterial color={tower.magenta?'#ff159f':'#20e8ff'} opacity={.72} transparent toneMapped={false}/></mesh>
-    </group>)}
-    {particles.map((p,i)=><mesh key={i} position={p} scale={0.012+(i%5)*0.006}><sphereGeometry args={[1,4,4]}/><meshBasicMaterial color={i%7===0?'#ff35bd':'#75f8ff'} opacity={0.2+state.atmosphere*0.25} transparent toneMapped={false}/></mesh>)}
+    {!low && <spotLight color="#a7fbff" intensity={18 * state.cyan} position={[0,7,-7]} angle={0.35} penumbra={0.7}/>}
+    <mesh position={[0, -4.7, city.length / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[8.9, city.length + 8]} />
+      <meshStandardMaterial color="#010207" metalness={0.88} roughness={0.3} />
+    </mesh>
+    <CityRoadSegments roadSegments={city.roadSegments} />
+    <CityBuildings buildings={city.buildings} />
+    <CityLightStrips lightStrips={city.lightStrips} />
+    {!low && <TrafficTrails trafficTrails={city.trafficTrails} />}
+    {particles.map((particle, index) => <mesh key={index} position={particle} scale={0.012 + (index % 5) * 0.006}>
+      <sphereGeometry args={[1,4,4]}/>
+      <meshBasicMaterial color={index % 7 === 0 ? '#ff35bd' : '#75f8ff'} opacity={0.2 + state.atmosphere * 0.25} transparent toneMapped={false}/>
+    </mesh>)}
   </group>;
 }

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { cyberpunkTowerLayout } from './CinematicLighting';
+import { cinematicCityLayout } from './CinematicLighting';
 
-describe('cyberpunkTowerLayout', () => {
-  it('keeps the city canyon alongside the full travelling score', () => {
+describe('cinematicCityLayout', () => {
+  it('selects the high-density city data for the cinematic renderer', () => {
     const duration = 60;
-    const towers = cyberpunkTowerLayout(duration);
+    const city = cinematicCityLayout(duration, 'high');
 
-    expect(Math.max(...towers.map((tower) => tower.position[2])))
-      .toBeGreaterThan(duration * 1.5 + 8);
-    expect(towers.every((tower) => Math.abs(tower.position[0]) >= 5)).toBe(true);
-    expect(towers.some((tower) => tower.magenta)).toBe(true);
+    expect(city.buildings.length).toBeGreaterThan(0);
+    expect(city.lightStrips.length).toBe(city.buildings.length * 2);
+    expect(city.roadSegments.length).toBeGreaterThan(0);
+    expect(city.trafficTrails.length).toBeGreaterThan(0);
   });
 });
