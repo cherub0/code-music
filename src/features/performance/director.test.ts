@@ -53,15 +53,9 @@ describe('cinematic director', () => {
     expect(directorStateAt(input({ time: 12.13 })).fracture.flash).toBe(0);
   });
 
-  it('does not shake the camera for ordinary musical impacts', () => {
+  it('keeps camera data identical when only an ordinary impact changes', () => {
     const calm = directorStateAt(input({ time: 60, impact: { age: 1, energy: 0, lowEnergy: 0 } }));
     const accented = directorStateAt(input({ time: 60, impact: { age: 0.05, energy: 1, lowEnergy: 1 } }));
-    expect(accented.camera).toEqual(calm.camera);
-  });
-
-  it('keeps camera data identical when only an ordinary impact changes', () => {
-    const calm = directorStateAt(input({ time: 60 }));
-    const accented = directorStateAt(input({ time: 60, impact: { age: 0.01, energy: 1, lowEnergy: 1 } }));
     expect(accented.camera).toEqual(calm.camera);
   });
 
@@ -84,5 +78,15 @@ describe('cinematic director', () => {
     const camera = directorStateAt(input({ time: 60 })).camera;
     expect(Math.abs(camera.position[0] - camera.target[0])).toBeGreaterThan(2);
     expect(Math.abs(camera.position[1] - camera.target[1])).toBeGreaterThan(1);
+  });
+
+  it('settles into an approximately 30-degree oblique follow late in perform', () => {
+    const camera = directorStateAt(input({ time: 90 })).camera;
+    const horizontalAngle = Math.atan2(
+      Math.abs(camera.position[0] - camera.target[0]),
+      Math.abs(camera.target[2] - camera.position[2]),
+    ) * 180 / Math.PI;
+    expect(horizontalAngle).toBeGreaterThanOrEqual(27);
+    expect(horizontalAngle).toBeLessThanOrEqual(33);
   });
 });

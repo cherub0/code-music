@@ -45,8 +45,8 @@ export function directorStateAt(input: DirectorInput): DirectorState {
     position = [mix(-0.1, 0.45, frame.actProgress) + shakeX, mix(0.4, 0.65, frame.actProgress) + shakeY, scoreZ - 9.4];
     target = [mix(0, 0.3, frame.actProgress), 0.1, scoreZ + 9.5];
   } else {
-    position = [mix(0.45, 4.3, flightBlend) + shakeX, mix(0.65, 2.35, flightBlend) + shakeY, scoreZ - mix(9.4, 7.4, flightBlend)];
-    target = [mix(0.3, 0, flightBlend), mix(0.1, 0.25, flightBlend), scoreZ + mix(9.5, 6.2, flightBlend)];
+    position = [mix(0.45, 4.3, flightBlend) + shakeX, mix(0.65, 2.35, flightBlend) + shakeY, scoreZ - mix(9.4, 3.7, flightBlend)];
+    target = [mix(0.3, 0, flightBlend), mix(0.1, 0.25, flightBlend), scoreZ + mix(9.5, 3.75, flightBlend)];
   }
 
   return {
