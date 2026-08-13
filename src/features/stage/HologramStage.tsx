@@ -1,9 +1,12 @@
 import { addAfterEffect, addEffect, Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import { performanceFrame } from '../performance/frame';
+import { directorStateAt } from '../performance/director';
+import { buildImpactTimeline, impactStateAt } from '../performance/impacts';
 import type { ScoreLayout } from '../score/layout';
 import { CameraRig } from './CameraRig';
 import { CodeTerminal } from './CodeTerminal';
+import { CodeMonolith } from './CodeMonolith';
 import { ScoreRibbon } from './ScoreRibbon';
 import { ShardField } from './ShardField';
 import { StageEffects } from './StageEffects';
@@ -20,6 +23,7 @@ export type HologramStageProps = {
 };
 
 const CHOREOGRAPHY_SEED = 0x48f1a3;
+const CINEMATIC_STAGE = true;
 
 function StageTelemetry() {
   const renderer = useThree((state) => state.gl);
@@ -56,6 +60,14 @@ export function HologramStage({
     () => performanceFrame(logicalTime, score.durationSeconds, seed),
     [logicalTime, score.durationSeconds, seed],
   );
+  const impacts = useMemo(() => buildImpactTimeline(score), [score]);
+  const director = useMemo(() => directorStateAt({
+    time: logicalTime,
+    duration: score.durationSeconds,
+    seed,
+    quality: previewQuality,
+    impact: impactStateAt(logicalTime, impacts),
+  }), [impacts, logicalTime, previewQuality, score.durationSeconds, seed]);
   const dpr: number | [number, number] = quality === 'preview' ? [1, 1.5] : 1;
 
   return (
@@ -73,7 +85,9 @@ export function HologramStage({
       <pointLight color="#46f7ff" intensity={18} position={[-6, 5, -2]} distance={30} />
       <pointLight color="#ff3fc8" intensity={14} position={[7, -2, 7]} distance={36} />
 
-      <CodeTerminal frame={frame} logicalTime={logicalTime} />
+      {CINEMATIC_STAGE
+        ? <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
+        : <CodeTerminal frame={frame} logicalTime={logicalTime} />}
       <ShardField frame={frame} score={score} />
       <ScoreRibbon
         frame={frame}
