@@ -14,7 +14,7 @@ export function ScoreReassembly({ score, logicalTime, state, windowSeconds=8 }: 
       dummy.position.set(x+r.stem.position[0],r.stem.position[1],r.stem.position[2]); dummy.scale.set(.025,r.stem.height,.025); dummy.updateMatrix(); stems.current!.setMatrixAt(i,dummy.matrix); }); heads.current.instanceMatrix.needsUpdate=true; stems.current.instanceMatrix.needsUpdate=true; if(heads.current.instanceColor)heads.current.instanceColor.needsUpdate=true;
   },[color,dummy,records]);
   const opacity=state.act==='perform'?0.9:state.fracture.assembly*0.9;
-  return <group visible={opacity>0.001} data-notation-capacity={capacity}>
+  return <group visible={opacity>0.001}>
     {[-2,-1,0,1,2].map(i=><mesh key={i} position={[0,i*.17,score.durationSeconds*.75]}><boxGeometry args={[.035,.018,score.durationSeconds*1.5+12]}/><meshBasicMaterial color="#48eaff" opacity={opacity*.5} transparent toneMapped={false}/></mesh>)}
     <instancedMesh ref={heads} args={[undefined,undefined,capacity]} frustumCulled={false}><sphereGeometry args={[1,12,8]}/><meshBasicMaterial vertexColors opacity={opacity} transparent toneMapped={false}/></instancedMesh>
     <instancedMesh ref={stems} args={[undefined,undefined,capacity]} frustumCulled={false}><boxGeometry args={[1,1,1]}/><meshBasicMaterial color="#8efaff" opacity={opacity*.8} transparent toneMapped={false}/></instancedMesh>

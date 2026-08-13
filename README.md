@@ -50,6 +50,12 @@ A single offset and speed cannot continuously align a live performance whose tem
 
 Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 45% of total duration. Tracks from 8 seconds up to (but not including) 20 seconds use fixed boundaries at 2, 5, and 8 seconds. Tracks under 8 seconds use compressed boundaries at 20%, 50%, and 80%, leaving the final 20% for the perform act.
 
+### Cinematic performance
+
+The stage is a directed four-act sequence: a layered code monolith accumulates MIDI-driven cracks, a single principal impact releases a fixed shard field, those same shards resolve into staff and notation, and the camera enters a score-flight finale. Camera pose, impact shake, lighting, shards, and active notes are calculated from absolute logical time and a fixed seed, so seeking and export reconstruct the same shot instead of depending on playback history.
+
+Free camera dragging is intentionally disabled during the performance. High quality uses 192 shards, longer trails, a volumetric key light, and 96 atmosphere particles. Low preview uses 96 shards, shorter trails, and 40 particles while preserving act timing, camera choreography, and active notation. If an optional volumetric effect is unavailable, emissive materials, fixed lights, bloom, and fog still provide a non-blocking visual fallback.
+
 ## Export
 
 - **WebM** is the primary path. Chrome/Edge capture the 30 FPS stage and Web Audio in real time using VP9/VP8 plus Opus where supported.

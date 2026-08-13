@@ -31,10 +31,14 @@ async function startExport(page: Page, resolution: '720p' | '1080p', format: 'we
   return page.getByRole('link', { name: format === 'mp4' ? 'Download MP4' : 'Download WebM' });
 }
 
-test('exports the short built-in demo as a non-empty 720p WebM and restores preview', async ({ page }) => {
+test('exports the short local fixture as a non-empty 720p WebM and restores preview', async ({ page }) => {
   test.setTimeout(60_000);
   const externalRequests = observeExternalRequests(page);
-  await loadBuiltInDemo(page);
+  await page.goto('/');
+  await page.getByLabel('选择音乐文件').setInputFiles(path.resolve('public/demo/demo.ogg'));
+  await page.getByLabel('选择 MIDI 文件').setInputFiles(path.resolve('public/demo/demo.mid'));
+  await page.getByRole('button', { name: '启动演出' }).click();
+  await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
   await expect(page.getByLabel('Export resolution')).toHaveValue('720p');
   await expect(page.getByLabel('Export format')).toHaveValue('webm');
 

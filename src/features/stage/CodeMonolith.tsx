@@ -50,7 +50,7 @@ export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
 
   const scanY = 2.35 - state.scanOffset * 4.7;
   return (
-    <group data-crack-capacity={CRACK_CAPACITY} data-layer-count={3} visible={state.opacity > 0.001}>
+    <group visible={state.opacity > 0.001}>
       {[0, 1, 2].map((layer) => (
         <group key={layer} position={[layer * 0.1 - 0.1, layer * 0.04, layer * -0.22]}>
           <mesh><boxGeometry args={[8.2 + layer * 0.25, 5.05 + layer * 0.18, 0.08]} />

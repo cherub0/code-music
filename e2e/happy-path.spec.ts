@@ -96,6 +96,8 @@ async function builtBundleProof() {
 
 test('built-in demo plays and rebuilds every act after an absolute seek', async ({ page }, testInfo) => {
   const externalRequests = observeExternalRequests(page);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
   await loadBuiltInDemo(page);
   await expect(page.locator('[data-cinematic-stage="true"]')).toBeVisible();
 
@@ -110,6 +112,10 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
       path: testInfo.outputPath(`act-${act}.png`),
     });
   }
+
+  const canvas = page.locator('[data-cinematic-stage="true"] canvas');
+  await expect(canvas).toHaveAttribute('data-draw-calls', /[1-9]\d*/);
+  expect(pageErrors).toEqual([]);
 
   expect(externalRequests, 'audio and MIDI must remain on the local app origin').toEqual([]);
 });

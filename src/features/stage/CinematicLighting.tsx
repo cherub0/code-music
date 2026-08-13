@@ -6,7 +6,7 @@ import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 export function CinematicLighting({ state, previewQuality, quality }: { state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality }) {
   const low = quality === 'preview' && previewQuality === 'low';
   const particles = useMemo(() => { const r=mulberry32(0xa7105); return Array.from({length:low?40:96},()=>[(r()-.5)*40,(r()-.5)*22,r()*90] as [number,number,number]); },[low]);
-  return <group data-atmosphere-count={particles.length}>
+  return <group>
     <ambientLight color="#071626" intensity={0.32 + state.atmosphere * 0.25}/>
     <pointLight color="#48f5ff" intensity={12 * state.cyan} position={[-7,5,-2]} distance={45}/>
     <pointLight color="#ff35bd" intensity={10 * state.magenta} position={[7,-2,4]} distance={48}/>

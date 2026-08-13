@@ -19,7 +19,7 @@ export function CinematicFracture({ state, seed, capacity }: { state: DirectorSt
     mesh.instanceMatrix.needsUpdate = true; trails.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [color, dummy, shards, state]);
-  return <group data-shard-capacity={capacity}>
+  return <group>
     <instancedMesh ref={shardRef} args={[undefined, undefined, capacity]} frustumCulled={false}><boxGeometry args={[1, 1, 1]} /><meshStandardMaterial vertexColors metalness={0.72} roughness={0.18} emissive="#083e50" emissiveIntensity={2.4} /></instancedMesh>
     <instancedMesh ref={trailRef} args={[undefined, undefined, capacity]} frustumCulled={false}><boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color="#6ff8ff" opacity={0.32} transparent toneMapped={false} /></instancedMesh>
     {[0,1,2].map((ring) => <mesh key={ring} rotation={[Math.PI / 2,0,0]} scale={1 + state.fracture.shockwave * (8 + ring * 3)} visible={state.fracture.shockwave > 0}><ringGeometry args={[0.95,1,64]} /><meshBasicMaterial color={ring === 1 ? '#ff35bd' : '#9cffff'} opacity={(1-state.fracture.shockwave)*0.5} transparent toneMapped={false} /></mesh>)}
