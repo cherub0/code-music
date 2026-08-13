@@ -37,10 +37,8 @@ export function stageComposition({
 }) {
   const lowPreview = quality === 'preview' && previewQuality === 'low';
   return {
-    city: { density: lowPreview ? 'low' as const : 'high' as const, duration, quality },
-    effects: { count: 1 as const },
-    noteFlight: { duration, seed, windowSeconds: lowPreview ? 4 : 8 },
-    camera: { count: 1 as const },
+    city: { density: lowPreview ? 'low' as const : 'high' as const, duration, quality, seed },
+    noteFlight: { windowSeconds: lowPreview ? 4 : 8 },
   };
 }
 
@@ -56,11 +54,19 @@ function StageTelemetry() {
     const sampleAfterFrame = addAfterEffect(() => {
       const canvas = renderer.domElement;
       let cityLayers = 0;
+      let cityPools = 0;
       let instancedPools = 0;
       let noteFlightLayers = 0;
+      let noteFlightPools = 0;
       scene.traverse((object) => {
-        if (object.name === 'cyberpunk-city') cityLayers += 1;
-        if (object.name === 'note-flight') noteFlightLayers += 1;
+        if (object.name === 'cyberpunk-city') {
+          cityLayers += 1;
+          object.traverse((child) => { if ('isInstancedMesh' in child && child.isInstancedMesh === true) cityPools += 1; });
+        }
+        if (object.name === 'note-flight') {
+          noteFlightLayers += 1;
+          object.traverse((child) => { if ('isInstancedMesh' in child && child.isInstancedMesh === true) noteFlightPools += 1; });
+        }
         if ('isInstancedMesh' in object && object.isInstancedMesh === true) instancedPools += 1;
       });
       canvas.dataset.drawCalls = String(renderer.info.render.calls);
@@ -69,7 +75,9 @@ function StageTelemetry() {
       canvas.dataset.sceneObjects = String(scene.children.length);
       canvas.dataset.instancedPools = String(instancedPools);
       canvas.dataset.cityLayers = String(cityLayers);
+      canvas.dataset.cityPools = String(cityPools);
       canvas.dataset.noteFlightLayers = String(noteFlightLayers);
+      canvas.dataset.noteFlightPools = String(noteFlightPools);
       canvas.dataset.cameraPose = String(camera.userData.directorPose ?? '');
     });
 
@@ -120,7 +128,7 @@ export function HologramStage({
     >
       <color args={['#02040c']} attach="background" />
       <fog args={['#030611', 16, 86]} attach="fog" />
-      <CinematicLighting duration={composition.city.duration} previewQuality={previewQuality} quality={composition.city.quality} seed={seed} state={director.lighting} />
+      <CinematicLighting {...composition.city} previewQuality={previewQuality} state={director.lighting} />
 
       <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
       <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />

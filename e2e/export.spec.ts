@@ -1,4 +1,5 @@
 import { expect, test, type Download, type Locator, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadBuiltInDemo, observeExternalRequests, seekToAct } from './app-driver';
 
@@ -31,22 +32,30 @@ async function startExport(page: Page, resolution: '720p' | '1080p', format: 'we
   return page.getByRole('link', { name: format === 'mp4' ? 'Download MP4' : 'Download WebM' });
 }
 
-test('exports the short local fixture as a non-empty 720p WebM and restores preview', async ({ page }, testInfo) => {
+test('exports a bounded licensed built-in Chinese demo as one-track 720p WebM and restores preview', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const externalRequests = observeExternalRequests(page);
-  await page.goto('/');
-  await page.getByLabel('选择音乐文件').setInputFiles(path.resolve('public/demo/demo.ogg'));
-  await page.getByLabel('选择 MIDI 文件').setInputFiles(path.resolve('public/demo/demo.mid'));
-  await page.getByRole('button', { name: '启动演出' }).click();
-  await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
+  await page.addInitScript(() => {
+    const nativePlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function patchedPlay() {
+      const result = nativePlay.call(this);
+      window.setTimeout(() => this.dispatchEvent(new Event('ended')), 4_000);
+      return result;
+    };
+  });
+  await loadBuiltInDemo(page);
   await expect(page.getByLabel('Export resolution')).toHaveValue('720p');
   await expect(page.getByLabel('Export format')).toHaveValue('webm');
 
   const link = await startExport(page, '720p', 'webm');
   await expect(link).toBeVisible({ timeout: 30_000 });
   const download = await downloadResult(page, link, /^video\/webm(?:;|$)/);
-  await download.saveAs(testInfo.outputPath('export-720p.webm'));
-  expect(download.suggestedFilename()).toMatch(/^demo-720p-\d{8}T\d{6}\.webm$/);
+  const artifactPath = testInfo.outputPath('licensed-built-in-720p.webm');
+  await download.saveAs(artifactPath);
+  const codecIds = (await readFile(artifactPath)).toString('latin1');
+  expect(codecIds.match(/V_VP9/g)).toHaveLength(1);
+  expect(codecIds.match(/A_OPUS/g)).toHaveLength(1);
+  expect(download.suggestedFilename()).toMatch(/^xintiaodeshengyin-720p-\d{8}T\d{6}\.webm$/);
 
   await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Play performance' })).toBeEnabled();

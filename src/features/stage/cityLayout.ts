@@ -59,7 +59,7 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
       const width = 1.45 + random() * 2.8;
       const height = 5 + random() * 11;
       const depth = 2 + random() * 3;
-      const setback = 4.5 + width / 2 + random() * 5.5;
+      const setback = 4.5 + width / 2 + random() * 1.8;
       const magenta = index % 7 === 0;
       const building: BuildingRecord = {
         position: [side * setback, -4 + height / 2, z + (random() - 0.5) * 1.1],
@@ -81,7 +81,7 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
         });
         lightStrips.push({
           position: [building.position[0], -4 + height * 0.62, building.position[2] - depth / 2 - 0.055],
-          scale: [width * 0.78, 0.08, 0.11],
+          scale: [width * 0.86, 0.2, 0.18],
           magenta,
         });
       }

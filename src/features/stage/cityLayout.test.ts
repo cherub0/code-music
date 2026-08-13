@@ -8,6 +8,7 @@ describe('buildCityLayout', () => {
     expect(layout.length).toBeGreaterThanOrEqual(108);
     expect(layout.buildings.every((building) => Math.abs(building.position[0]) >= 4.5)).toBe(true);
     expect(layout.buildings.every((building) => Math.abs(building.position[0]) - building.scale[0] / 2 >= 4.5)).toBe(true);
+    expect(layout.buildings.every((building) => Math.abs(building.position[0]) - building.scale[0] / 2 <= 6.3)).toBe(true);
     expect(layout.lightStrips.every((strip) => Math.abs(strip.position[0]) - strip.scale[0] / 2 >= 4.35)).toBe(true);
     expect(buildCityLayout(60, 0xc17b3, 'high')).toEqual(layout);
     expect(buildCityLayout(60, 0xc17b4, 'high')).not.toEqual(layout);
@@ -37,6 +38,15 @@ describe('buildCityLayout', () => {
       const horizontalStrip = layout.lightStrips[index * 2 + 1];
       expect(horizontalStrip.position[2]).toBeLessThan(building.position[2]);
       expect(horizontalStrip.position[1]).toBeLessThan(building.position[1] + building.scale[1] / 2);
+      expect(horizontalStrip.scale[0]).toBeGreaterThan(1);
+      expect(horizontalStrip.scale[1]).toBeGreaterThanOrEqual(0.14);
     });
+  });
+
+  it('reserves a nontrivial share of facade accents for magenta', () => {
+    const layout = buildCityLayout(232.9, 0xc17b3, 'high');
+    const magentaShare = layout.lightStrips.filter((strip) => strip.magenta).length / layout.lightStrips.length;
+    expect(magentaShare).toBeGreaterThanOrEqual(0.12);
+    expect(magentaShare).toBeLessThanOrEqual(0.2);
   });
 });

@@ -48,20 +48,21 @@ function CityBuildings({ buildings }: Pick<CityLayout, 'buildings'>) {
 }
 
 function CityLightStrips({ lightStrips }: Pick<CityLayout, 'lightStrips'>) {
-  const meshRef = useInstanceMatrices(lightStrips);
+  const cyanStrips = useMemo(() => lightStrips.filter((strip) => !strip.magenta), [lightStrips]);
+  const magentaStrips = useMemo(() => lightStrips.filter((strip) => strip.magenta), [lightStrips]);
+  const cyanRef = useInstanceMatrices(cyanStrips);
+  const magentaRef = useInstanceMatrices(magentaStrips);
 
-  useEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-
-    lightStrips.forEach((strip, index) => mesh.setColorAt(index, strip.magenta ? MAGENTA : CYAN));
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [lightStrips, meshRef]);
-
-  return <instancedMesh ref={meshRef} args={[undefined, undefined, lightStrips.length]} frustumCulled={false}>
-    <boxGeometry args={[1, 1, 1]} />
-    <meshBasicMaterial vertexColors toneMapped={false} />
-  </instancedMesh>;
+  return <>
+    <instancedMesh ref={cyanRef} args={[undefined, undefined, cyanStrips.length]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color={CYAN} toneMapped={false} />
+    </instancedMesh>
+    <instancedMesh ref={magentaRef} args={[undefined, undefined, magentaStrips.length]} frustumCulled={false}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshBasicMaterial color={MAGENTA} toneMapped={false} />
+    </instancedMesh>
+  </>;
 }
 
 function CityRoadSegments({ roadSegments }: Pick<CityLayout, 'roadSegments'>) {
@@ -90,8 +91,8 @@ function TrafficTrails({ trafficTrails }: Pick<CityLayout, 'trafficTrails'>) {
   </instancedMesh>;
 }
 
-export function CinematicLighting({ duration, state, previewQuality, quality, seed = CITY_SEED }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality; seed?: number }) {
-  const low = quality === 'preview' && previewQuality === 'low';
+export function CinematicLighting({ duration, state, previewQuality, quality, seed = CITY_SEED, density }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality; seed?: number; density?: 'high' | 'low' }) {
+  const low = density ? density === 'low' : quality === 'preview' && previewQuality === 'low';
   const particles = useMemo(() => {
     const random = mulberry32(0xa7105);
     return Array.from({ length: low ? 40 : 96 }, () => [

@@ -125,6 +125,8 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
     cityLayers: Number(element.dataset.cityLayers),
     geometries: Number(element.dataset.geometries),
     instancedPools: Number(element.dataset.instancedPools),
+    cityPools: Number(element.dataset.cityPools),
+    noteFlightPools: Number(element.dataset.noteFlightPools),
     noteFlightLayers: Number(element.dataset.noteFlightLayers),
     textures: Number(element.dataset.textures),
   }));
@@ -135,6 +137,11 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
   expect(performTelemetry.cityLayers).toBe(1);
   expect(performTelemetry.noteFlightLayers).toBe(1);
   expect(performTelemetry.instancedPools).toBeGreaterThan(0);
+  expect(performTelemetry.cityPools).toBeGreaterThan(0);
+  expect(performTelemetry.noteFlightPools).toBeGreaterThan(0);
+  const horizontalYaw = Math.atan2(Math.abs(pose[3] - pose[0]), pose[5] - pose[2]) * 180 / Math.PI;
+  expect(horizontalYaw).toBeGreaterThanOrEqual(27);
+  expect(horizontalYaw).toBeLessThanOrEqual(33);
 
   const warmedSnapshots = [];
   for (let cycle = 0; cycle < 5; cycle += 1) {
@@ -145,6 +152,8 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
       cityLayers: Number(element.dataset.cityLayers),
       geometries: Number(element.dataset.geometries),
       instancedPools: Number(element.dataset.instancedPools),
+      cityPools: Number(element.dataset.cityPools),
+      noteFlightPools: Number(element.dataset.noteFlightPools),
       noteFlightLayers: Number(element.dataset.noteFlightLayers),
       textures: Number(element.dataset.textures),
     })));
@@ -153,6 +162,8 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
     cityLayers: performTelemetry.cityLayers,
     geometries: performTelemetry.geometries,
     instancedPools: performTelemetry.instancedPools,
+    cityPools: performTelemetry.cityPools,
+    noteFlightPools: performTelemetry.noteFlightPools,
     noteFlightLayers: performTelemetry.noteFlightLayers,
     textures: performTelemetry.textures,
   })));

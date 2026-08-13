@@ -3,12 +3,10 @@ import { directorStateAt } from '../performance/director';
 import { stageComposition } from './HologramStage';
 
 describe('cinematic stage director contract', () => {
-  it('wires one city, note-flight, camera, and effects stack with low-preview density', () => {
+  it('returns only props consumed by the city and note-flight component boundaries', () => {
     expect(stageComposition({ duration: 232.9, previewQuality: 'low', quality: 'preview', seed: 31 })).toEqual({
-      city: { density: 'low', duration: 232.9, quality: 'preview' },
-      effects: { count: 1 },
-      noteFlight: { duration: 232.9, seed: 31, windowSeconds: 4 },
-      camera: { count: 1 },
+      city: { density: 'low', duration: 232.9, quality: 'preview', seed: 31 },
+      noteFlight: { windowSeconds: 4 },
     });
 
     expect(stageComposition({ duration: 232.9, previewQuality: 'low', quality: 'export-720p', seed: 31 }).city.density).toBe('high');

@@ -60,3 +60,31 @@ Directory: `test-results/happy-path-built-in-demo-p-1e931--act-after-an-absolute
 ## Commit
 
 `feat: integrate cyberpunk city music flight`
+
+## Fix Round 1
+
+All Important review findings were addressed in one TDD wave.
+
+- RED: the stage composition contract returned unused camera/effects and note duration/seed fields; facade accents were too thin/far outside the canyon view; owned city/note pool telemetry was absent; the first ACT04 sample measured only 16.78 degrees yaw; and the first bounded built-in export did not stop because the capture element used a blob URL.
+- GREEN: `stageComposition` now contains only JSX-consumed city props and the note window; `CinematicLighting` consumes density/duration/quality/seed directly; telemetry counts instanced pools below the named city and note component boundaries; ACT04 acceptance seeks into the settled follow shot and measures horizontal yaw in the required 27–33 degree band.
+- City root cause: the single vertex-colored strip pool did not make its instance colors visible in screenshots and random setbacks put most accents outside the view. Cyan and magenta facade strips now use separate fixed-color instanced materials, remain attached to forward/inner facades, and building inner edges remain within 4.5–6.3 world units of the corridor.
+- Licensed export: the test uses `loadBuiltInDemo` and the committed `xintiaodeshengyin.mp3` / `.mid` pair through the normal UI. Its capture audio `ended` event is bounded at four seconds in the test environment. Final artifact: 81,534 bytes, exactly one `V_VP9` and one `A_OPUS` codec ID. MP4 was not run.
+
+Final screenshot pixel audit samples every second pixel and classifies dark as max RGB <45, cyan as G>85/B>80 with cyan channel ratios, and magenta as R>115/B>55 with magenta channel ratios:
+
+| Act | Dark | Cyan | Magenta | Sampled magenta pixels |
+| --- | ---: | ---: | ---: | ---: |
+| assemble | 91.676% | 2.858% | 0.112% | 139 |
+| boot | 86.418% | 2.769% | 1.490% | 1,853 |
+| fracture | 89.456% | 2.339% | 0.683% | 849 |
+| perform | 95.149% | 1.467% | 0.165% | 205 |
+
+The pixels come from actual city facade instanced meshes, not the HUD, border, or a full-screen overlay. Visual inspection confirms black mass remains dominant, cyan building strips are clear in every act, magenta accents are nonzero in every act, and notes remain readable in ACT03/04.
+
+Final fresh verification after the fixes:
+
+- `npm test`: 22 files, 123 tests passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with the existing advisory chunk-size warning.
+- Licensed built-in bounded 720p WebM Chromium test: passed in 24.2s.
+- Production Chromium four-act / five-seek acceptance: passed in 45.5s; screenshots inspected and audited above.

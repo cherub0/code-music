@@ -27,7 +27,7 @@ export async function seekToAct(page: Page, act: PerformanceAct): Promise<number
 
   const fixedBoundary = { boot: 0, fracture: 2, assemble: 5, perform: 8 }[act];
   const target = duration >= 20
-    ? duration * ({ boot: 0.06, fracture: 0.2, assemble: 0.365, perform: 0.6 }[act])
+    ? duration * ({ boot: 0.06, fracture: 0.2, assemble: 0.365, perform: 0.75 }[act])
     : duration < 8
       ? duration * VERY_SHORT_TRACK_BOUNDARY_RATIOS[act]
       : fixedBoundary;
