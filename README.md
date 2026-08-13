@@ -24,7 +24,7 @@ npm run build
 npm run preview
 ```
 
-The built-in **Project Signal Etude** pair is available from **Load built-in demo** and is useful for a first run.
+The built-in **贝多芬《致爱丽丝》** pair is available from **Load built-in demo** and is useful for a first run. Its public-domain MIDI and locally synthesized audio share the same note timing, so the score animation stays synchronized throughout the piece.
 
 ## Use your own audio and MIDI
 
@@ -48,7 +48,7 @@ A single offset and speed cannot continuously align a live performance whose tem
 
 ### Four-act timing
 
-Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 45% of total duration. Tracks from 8 seconds up to (but not including) 20 seconds use fixed boundaries at 2, 5, and 8 seconds. Tracks under 8 seconds use compressed boundaries at 20%, 50%, and 80%, leaving the final 20% for the perform act. This last rule is an explicit final-review correction to the earlier implementation-plan wording; it lets the 4-second licensed demo show all four acts at 0.8, 2.0, and 3.2 seconds.
+Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 45% of total duration. Tracks from 8 seconds up to (but not including) 20 seconds use fixed boundaries at 2, 5, and 8 seconds. Tracks under 8 seconds use compressed boundaries at 20%, 50%, and 80%, leaving the final 20% for the perform act.
 
 ## Export
 

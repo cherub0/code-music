@@ -1,10 +1,10 @@
 [
   {
-    "title": "Project Signal Etude",
-    "audioUrl": "/demo/demo.ogg",
-    "midiUrl": "/demo/demo.mid",
+    "title": "贝多芬《致爱丽丝》",
+    "audioUrl": "/demo/fur-elise.wav",
+    "midiUrl": "/demo/fur-elise.mid",
     "offsetSeconds": 0,
     "speed": 1,
-    "seed": 4780451
+    "seed": 1810059
   }
 ]
