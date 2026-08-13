@@ -26,9 +26,11 @@ export async function seekToAct(page: Page, act: PerformanceAct): Promise<number
   expect(duration).toBeGreaterThan(0);
 
   const fixedBoundary = { boot: 0, fracture: 2, assemble: 5, perform: 8 }[act];
-  const target = duration < 8
-    ? duration * VERY_SHORT_TRACK_BOUNDARY_RATIOS[act]
-    : fixedBoundary;
+  const target = duration >= 20
+    ? duration * ({ boot: 0, fracture: 0.12, assemble: 0.28, perform: 0.45 }[act])
+    : duration < 8
+      ? duration * VERY_SHORT_TRACK_BOUNDARY_RATIOS[act]
+      : fixedBoundary;
 
   await timeline.evaluate((element, value) => {
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;

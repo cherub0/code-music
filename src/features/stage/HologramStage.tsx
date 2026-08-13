@@ -4,14 +4,10 @@ import { performanceFrame } from '../performance/frame';
 import { directorStateAt } from '../performance/director';
 import { buildImpactTimeline, impactStateAt } from '../performance/impacts';
 import type { ScoreLayout } from '../score/layout';
-import { CameraRig } from './CameraRig';
 import { DirectorCamera } from './DirectorCamera';
 import { CinematicLighting } from './CinematicLighting';
-import { CodeTerminal } from './CodeTerminal';
 import { CodeMonolith } from './CodeMonolith';
-import { ScoreRibbon } from './ScoreRibbon';
 import { ScoreReassembly } from './ScoreReassembly';
-import { ShardField } from './ShardField';
 import { CinematicFracture } from './CinematicFracture';
 import { StageEffects } from './StageEffects';
 
@@ -27,10 +23,11 @@ export type HologramStageProps = {
 };
 
 const CHOREOGRAPHY_SEED = 0x48f1a3;
-const CINEMATIC_STAGE = true;
 
 function StageTelemetry() {
+  const camera = useThree((state) => state.camera);
   const renderer = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
 
   useEffect(() => {
     const previousAutoReset = renderer.info.autoReset;
@@ -41,6 +38,9 @@ function StageTelemetry() {
       canvas.dataset.drawCalls = String(renderer.info.render.calls);
       canvas.dataset.geometries = String(renderer.info.memory.geometries);
       canvas.dataset.textures = String(renderer.info.memory.textures);
+      canvas.dataset.sceneObjects = String(scene.children.length);
+      canvas.dataset.instancedPools = String(scene.children.filter((child) => child.type === 'InstancedMesh').length);
+      canvas.dataset.cameraPose = String(camera.userData.directorPose ?? '');
     });
 
     return () => {
@@ -48,7 +48,7 @@ function StageTelemetry() {
       sampleAfterFrame();
       renderer.info.autoReset = previousAutoReset;
     };
-  }, [renderer]);
+  }, [camera, renderer, scene]);
 
   return null;
 }
@@ -79,27 +79,19 @@ export function HologramStage({
       aria-label="Holographic MIDI performance"
       camera={{ far: 420, fov: 48, near: 0.1, position: [6.8, 3.2, -10] }}
       data-act={frame.act}
+      data-cinematic-stage="true"
       dpr={dpr}
       frameloop="always"
       gl={{ alpha: false, antialias: quality !== 'preview', powerPreference: 'high-performance' }}
     >
       <color args={['#02040c']} attach="background" />
       <fog args={['#030611', 16, 86]} attach="fog" />
-      {CINEMATIC_STAGE ? <CinematicLighting previewQuality={previewQuality} quality={quality} state={director.lighting} /> : <><ambientLight color="#204460" intensity={0.58} /><pointLight color="#46f7ff" intensity={18} position={[-6, 5, -2]} distance={30} /><pointLight color="#ff3fc8" intensity={14} position={[7, -2, 7]} distance={36} /></>}
+      <CinematicLighting previewQuality={previewQuality} quality={quality} state={director.lighting} />
 
-      {CINEMATIC_STAGE
-        ? <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
-        : <CodeTerminal frame={frame} logicalTime={logicalTime} />}
-      {CINEMATIC_STAGE
-        ? <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />
-        : <ShardField frame={frame} score={score} />}
-      {CINEMATIC_STAGE ? <ScoreReassembly logicalTime={logicalTime} state={director} score={score} windowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8} /> : <ScoreRibbon
-        frame={frame}
-        logicalTime={logicalTime}
-        noteWindowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8}
-        score={score}
-      />}
-      {CINEMATIC_STAGE ? <DirectorCamera state={director.camera} /> : <CameraRig frame={frame} logicalTime={logicalTime} score={score} />}
+      <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
+      <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />
+      <ScoreReassembly logicalTime={logicalTime} state={director} score={score} windowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8} />
+      <DirectorCamera state={director.camera} />
       <StageEffects flash={director.fracture.flash} focusDistance={director.camera.focusDistance} logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
       <StageTelemetry />
     </Canvas>

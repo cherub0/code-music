@@ -97,6 +97,7 @@ async function builtBundleProof() {
 test('built-in demo plays and rebuilds every act after an absolute seek', async ({ page }, testInfo) => {
   const externalRequests = observeExternalRequests(page);
   await loadBuiltInDemo(page);
+  await expect(page.locator('[data-cinematic-stage="true"]')).toBeVisible();
 
   await page.getByRole('button', { name: 'Play performance' }).click();
   await expect(page.getByRole('button', { name: 'Pause performance' })).toBeVisible();
