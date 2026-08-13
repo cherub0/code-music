@@ -9,6 +9,7 @@ import { CodeTerminal } from './CodeTerminal';
 import { CodeMonolith } from './CodeMonolith';
 import { ScoreRibbon } from './ScoreRibbon';
 import { ShardField } from './ShardField';
+import { CinematicFracture } from './CinematicFracture';
 import { StageEffects } from './StageEffects';
 
 export type StageQuality = 'preview' | 'export-720p' | 'export-1080p';
@@ -88,7 +89,9 @@ export function HologramStage({
       {CINEMATIC_STAGE
         ? <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
         : <CodeTerminal frame={frame} logicalTime={logicalTime} />}
-      <ShardField frame={frame} score={score} />
+      {CINEMATIC_STAGE
+        ? <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />
+        : <ShardField frame={frame} score={score} />}
       <ScoreRibbon
         frame={frame}
         logicalTime={logicalTime}

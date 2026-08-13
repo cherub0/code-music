@@ -9,7 +9,7 @@ export type DirectorState = {
   act: PerformanceAct;
   camera: { position: [number, number, number]; target: [number, number, number]; fov: number; focusDistance: number };
   monolith: { opacity: number; crackEnergy: number; scanOffset: number };
-  fracture: { progress: number; flash: number; shockwave: number; trailEnergy: number };
+  fracture: { progress: number; assembly: number; flash: number; shockwave: number; trailEnergy: number };
   lighting: { cyan: number; magenta: number; atmosphere: number };
 };
 
@@ -56,6 +56,7 @@ export function directorStateAt(input: DirectorInput): DirectorState {
     },
     fracture: {
       progress: frame.fractureProgress,
+      assembly: frame.assemblyProgress,
       flash,
       shockwave: clamp01(fractureAge / 0.8) * clamp01(1 - fractureAge / 1.3),
       trailEnergy: clamp01(Math.sin(frame.fractureProgress * Math.PI) + input.impact.energy * 0.4),
