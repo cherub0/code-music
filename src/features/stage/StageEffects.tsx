@@ -18,9 +18,9 @@ const QUALITY_SETTINGS: Record<StageQuality, {
   multisampling: number;
   resolutionScale: number;
 }> = {
-  preview: { bloomIntensity: 0.72, grainOpacity: 0.035, multisampling: 0, resolutionScale: 0.72 },
-  'export-720p': { bloomIntensity: 0.82, grainOpacity: 0.028, multisampling: 4, resolutionScale: 1 },
-  'export-1080p': { bloomIntensity: 0.88, grainOpacity: 0.024, multisampling: 8, resolutionScale: 1 },
+  preview: { bloomIntensity: 0.92, grainOpacity: 0.006, multisampling: 0, resolutionScale: 0.82 },
+  'export-720p': { bloomIntensity: 1.02, grainOpacity: 0.004, multisampling: 4, resolutionScale: 1 },
+  'export-1080p': { bloomIntensity: 1.08, grainOpacity: 0.003, multisampling: 8, resolutionScale: 1 },
 };
 
 const DETERMINISTIC_GRAIN = `

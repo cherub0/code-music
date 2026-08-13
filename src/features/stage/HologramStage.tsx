@@ -86,7 +86,7 @@ export function HologramStage({
     >
       <color args={['#02040c']} attach="background" />
       <fog args={['#030611', 16, 86]} attach="fog" />
-      <CinematicLighting previewQuality={previewQuality} quality={quality} state={director.lighting} />
+      <CinematicLighting duration={score.durationSeconds} previewQuality={previewQuality} quality={quality} state={director.lighting} />
 
       <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
       <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />

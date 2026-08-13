@@ -23,9 +23,11 @@ export function directorStateAt(input: DirectorInput): DirectorState {
   const frame = performanceFrame(time, duration, input.seed);
   const fractureAge = time - fractureStart(duration);
   const flash = fractureAge >= 0 && fractureAge < 0.12 ? (1 - fractureAge / 0.12) ** 2 : 0;
-  const shakeEnvelope = input.impact.age < 0.32 ? input.impact.energy * (1 - input.impact.age / 0.32) ** 2 : 0;
-  const shakeX = Math.sin((time + input.seed * 0.013) * 91) * shakeEnvelope * 0.16;
-  const shakeY = Math.sin((time + input.seed * 0.021) * 73) * shakeEnvelope * 0.11;
+  const principalImpulse = fractureAge >= 0 && fractureAge < 0.18
+    ? Math.sin(fractureAge / 0.18 * Math.PI) * (1 - fractureAge / 0.18)
+    : 0;
+  const shakeX = Math.sin(fractureAge * 34) * principalImpulse * 0.045;
+  const shakeY = Math.sin(fractureAge * 27) * principalImpulse * 0.025;
   const scoreZ = time * 1.5;
   const orbit = frame.assemblyProgress * Math.PI * (2 / 3);
   const flight = frame.act === 'perform' ? frame.actProgress : 0;
@@ -42,7 +44,7 @@ export function directorStateAt(input: DirectorInput): DirectorState {
     position = [Math.cos(orbit) * 7 + shakeX, 2.8 + Math.sin(orbit * 0.6) + shakeY, scoreZ - 8 + Math.sin(orbit) * 5];
     target = [0, 0, scoreZ + 2];
   } else {
-    position = [Math.sin(time * 0.18) * 0.65 + shakeX, 0.55 + Math.sin(time * 0.27) * 0.18 + shakeY, scoreZ - mix(10, 6.8, flight)];
+    position = [4.2 + Math.sin(time * 0.08) * 0.28 + shakeX, 2.25 + Math.sin(time * 0.11) * 0.1 + shakeY, scoreZ - mix(11, 8.5, flight)];
     target = [Math.sin((scoreZ + 6) * 0.12) * 0.5, 0, scoreZ + 7];
   }
 

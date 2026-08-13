@@ -8,6 +8,7 @@ export type CrackSegment = { parent: number; threshold: number; start: [number, 
 const CRACK_CAPACITY = 48;
 export const MONOLITH_META = { crackCapacity: CRACK_CAPACITY, layerCount: 3 } as const;
 const CODE_WIDTHS = [4.8, 3.1, 5.4, 2.6, 4.2, 5.8, 3.7, 4.9, 2.9, 5.2] as const;
+const TOKEN_PATTERN = [0.18,0.32,0.12,0.46,0.22,0.14,0.38,0.17,0.28,0.11,0.42] as const;
 
 export function buildCrackSegments(seed: number): CrackSegment[] {
   const random = mulberry32(seed ^ 0xc0de51);
@@ -62,6 +63,9 @@ export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
               <meshBasicMaterial color={(index + layer) % 4 === 0 ? '#ff35bd' : '#55f6ff'} opacity={state.opacity * (0.78 - layer * 0.2)} transparent toneMapped={false} />
             </mesh>
           ))}
+          {TOKEN_PATTERN.map((width,index)=><mesh key={`token-${layer}-${index}`} position={[-3.55+(index%6)*1.18,1.67-Math.floor(index/6)*2.85,0.115]}>
+            <boxGeometry args={[width,0.12,0.025]}/><meshBasicMaterial color={index%3===0?'#ff159f':'#9bfbff'} opacity={state.opacity*(.75-layer*.18)} transparent toneMapped={false}/>
+          </mesh>)}
         </group>
       ))}
       <instancedMesh ref={crackRef} args={[undefined, undefined, CRACK_CAPACITY]} frustumCulled={false}>
