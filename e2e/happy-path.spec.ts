@@ -95,6 +95,7 @@ async function builtBundleProof() {
 }
 
 test('built-in demo plays and rebuilds every act after an absolute seek', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   const externalRequests = observeExternalRequests(page);
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -115,6 +116,46 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
 
   const canvas = page.locator('[data-cinematic-stage="true"] canvas');
   await expect(canvas).toHaveAttribute('data-draw-calls', /[1-9]\d*/);
+  await expect(canvas).toHaveAttribute('data-city-layers', '1');
+  await expect(canvas).toHaveAttribute('data-note-flight-layers', '1');
+
+  await seekToAct(page, 'perform');
+  const performTelemetry = await canvas.evaluate((element) => ({
+    cameraPose: element.dataset.cameraPose ?? '',
+    cityLayers: Number(element.dataset.cityLayers),
+    geometries: Number(element.dataset.geometries),
+    instancedPools: Number(element.dataset.instancedPools),
+    noteFlightLayers: Number(element.dataset.noteFlightLayers),
+    textures: Number(element.dataset.textures),
+  }));
+  const pose = performTelemetry.cameraPose.split(',').map(Number);
+  expect(pose).toHaveLength(7);
+  expect(Math.abs(pose[0] - pose[3]), 'ACT04 camera must keep a visible lateral oblique offset').toBeGreaterThan(2);
+  expect(Math.abs(pose[1] - pose[4]), 'ACT04 camera must keep a visible elevated oblique offset').toBeGreaterThan(1);
+  expect(performTelemetry.cityLayers).toBe(1);
+  expect(performTelemetry.noteFlightLayers).toBe(1);
+  expect(performTelemetry.instancedPools).toBeGreaterThan(0);
+
+  const warmedSnapshots = [];
+  for (let cycle = 0; cycle < 5; cycle += 1) {
+    await seekToAct(page, cycle % 2 === 0 ? 'boot' : 'fracture');
+    await seekToAct(page, 'perform');
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    warmedSnapshots.push(await canvas.evaluate((element) => ({
+      cityLayers: Number(element.dataset.cityLayers),
+      geometries: Number(element.dataset.geometries),
+      instancedPools: Number(element.dataset.instancedPools),
+      noteFlightLayers: Number(element.dataset.noteFlightLayers),
+      textures: Number(element.dataset.textures),
+    })));
+  }
+  expect(warmedSnapshots).toEqual(Array.from({ length: 5 }, () => ({
+    cityLayers: performTelemetry.cityLayers,
+    geometries: performTelemetry.geometries,
+    instancedPools: performTelemetry.instancedPools,
+    noteFlightLayers: performTelemetry.noteFlightLayers,
+    textures: performTelemetry.textures,
+  })));
   expect(pageErrors).toEqual([]);
 
   expect(externalRequests, 'audio and MIDI must remain on the local app origin').toEqual([]);

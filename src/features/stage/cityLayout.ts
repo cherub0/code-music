@@ -72,16 +72,16 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
         buildings.push(building);
         lightStrips.push({
           position: [
-            building.position[0] + side * (width / 2 + 0.035),
+            building.position[0] - side * (width / 2 + 0.055),
             building.position[1],
             building.position[2],
           ],
-          scale: [0.045, height * 0.66, 0.08],
+          scale: [0.08, height * 0.66, 0.14],
           magenta,
         });
         lightStrips.push({
-          position: [building.position[0], -4 + height - 0.08, building.position[2]],
-          scale: [width * 0.78, 0.04, depth * 0.76],
+          position: [building.position[0], -4 + height * 0.62, building.position[2] - depth / 2 - 0.055],
+          scale: [width * 0.78, 0.08, 0.11],
           magenta,
         });
       }

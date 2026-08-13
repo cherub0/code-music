@@ -53,10 +53,7 @@ export function ScoreReassembly({ score, logicalTime, state, windowSeconds = 8 }
   }, [color, dummy, records]);
 
   const opacity=state.act==='perform'?0.9:state.fracture.assembly*0.9;
-  const guideLength = Math.min(7, Math.max(3, windowSeconds * 0.6));
-  const guideCenter = logicalTime * 1.5;
-  return <group visible={opacity>0.001}>
-    {[-2,-1,0,1,2].map(i=><mesh key={i} position={[0,i*.17,guideCenter]}><boxGeometry args={[4.6,.012,guideLength]}/><meshBasicMaterial color="#48eaff" opacity={opacity*.16} transparent toneMapped={false}/></mesh>)}
+  return <group name="note-flight" visible={opacity>0.001}>
     <instancedMesh ref={trails} args={[undefined,undefined,capacity]} frustumCulled={false}><boxGeometry args={[1,1,1]}/><meshBasicMaterial vertexColors opacity={opacity*.52} transparent toneMapped={false}/></instancedMesh>
     <instancedMesh ref={heads} args={[undefined,undefined,capacity]} frustumCulled={false}><sphereGeometry args={[1,12,8]}/><meshBasicMaterial vertexColors opacity={opacity} transparent toneMapped={false}/></instancedMesh>
     <instancedMesh ref={stems} args={[undefined,undefined,capacity]} frustumCulled={false}><boxGeometry args={[1,1,1]}/><meshBasicMaterial color="#8efaff" opacity={opacity*.8} transparent toneMapped={false}/></instancedMesh>

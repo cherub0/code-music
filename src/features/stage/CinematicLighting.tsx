@@ -12,8 +12,8 @@ const MAGENTA = new Color('#ff159f');
 
 type TransformRecord = { position: CityVector; scale: CityVector };
 
-export function cinematicCityLayout(duration: number, density: 'high' | 'low'): CityLayout {
-  return buildCityLayout(duration, CITY_SEED, density);
+export function cinematicCityLayout(duration: number, density: 'high' | 'low', seed = CITY_SEED): CityLayout {
+  return buildCityLayout(duration, seed, density);
 }
 
 export function cyberpunkTowerLayout(duration: number): BuildingRecord[] {
@@ -90,7 +90,7 @@ function TrafficTrails({ trafficTrails }: Pick<CityLayout, 'trafficTrails'>) {
   </instancedMesh>;
 }
 
-export function CinematicLighting({ duration, state, previewQuality, quality }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality }) {
+export function CinematicLighting({ duration, state, previewQuality, quality, seed = CITY_SEED }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality; seed?: number }) {
   const low = quality === 'preview' && previewQuality === 'low';
   const particles = useMemo(() => {
     const random = mulberry32(0xa7105);
@@ -100,9 +100,9 @@ export function CinematicLighting({ duration, state, previewQuality, quality }: 
       random() * 90,
     ] as CityVector);
   }, [low]);
-  const city = useMemo(() => cinematicCityLayout(duration, low ? 'low' : 'high'), [duration, low]);
+  const city = useMemo(() => cinematicCityLayout(duration, low ? 'low' : 'high', seed), [duration, low, seed]);
 
-  return <group>
+  return <group name="cyberpunk-city">
     <ambientLight color="#020611" intensity={0.18 + state.atmosphere * 0.15}/>
     <pointLight color="#48f5ff" intensity={12 * state.cyan} position={[-7,5,-2]} distance={45}/>
     <pointLight color="#ff35bd" intensity={10 * state.magenta} position={[7,-2,4]} distance={48}/>

@@ -1,0 +1,62 @@
+# Task 5 Report: Integration, Visual Acceptance, and Export Regression
+
+## Status
+
+Complete. The production stage now exposes a stable composition contract for one city layer, one note-flight layer, one director camera, and one effects stack. Low preview selects reduced city/note density while export keeps high density. The city and notes receive the score duration and choreography seed.
+
+## RED / GREEN
+
+- RED: `HologramStage.test.tsx` failed with `stageComposition is not a function`.
+- GREEN: added `stageComposition`, wired duration/seed/quality/window selection, and passed the focused stage test.
+- RED: Chromium acceptance failed because semantic city/note telemetry was absent.
+- GREEN: named the scene layers, traversed the complete scene for stable instanced-pool counts, and passed camera/layer/pool assertions plus five backward/forward seek cycles.
+- RED: screenshot inspection showed outward-facing/occluded neon strips and dominant staff-guide planes. New city-layout tests failed on canyon/forward-facing facade placement.
+- GREEN: moved the neon strips to visible facades, widened them, removed the competing staff guides, and passed focused and browser checks.
+
+## Verification
+
+- `npm test`: 22 files, 122 tests passed.
+- `npm run typecheck`: passed.
+- `npm run build`: passed (Vite only reports the existing large-entry-chunk warning).
+- `npx playwright test e2e/happy-path.spec.ts --project=chromium --grep "built-in demo plays"`: passed in 45.5s after the final visual changes.
+- Four absolute seek screenshots: nonzero draw calls, no page errors, one city layer, one note-flight layer, stable camera/resource/pool telemetry over five seek cycles.
+- `npx playwright test e2e/export.spec.ts --project=chromium --grep "short local fixture"`: passed; saved a 191,687-byte 720p WebM.
+- WebM EBML codec-ID scan: exactly one `V_VP9` and one `A_OPUS`, evidencing one video and one audio track. MP4 was not run.
+
+## Screenshot paths and visual observations
+
+Directory: `test-results/happy-path-built-in-demo-p-1e931--act-after-an-absolute-seek-chromium/`
+
+- `act-boot.png`: near-black city canyon dominates; restrained cyan fog/particles; no shake/grain artifact.
+- `act-fracture.png`: city remains continuous and stable; black mass stays dominant.
+- `act-assemble.png`: cyan note bodies/trails appear inside the central building corridor; full-length staff geometry is absent.
+- `act-perform.png`: stable elevated lateral camera, city still present deep into the 232.9s demo, notes visibly traverse between buildings; cyan remains primary and magenta sparse.
+
+## WebM evidence
+
+- Test artifact before the screenshot rerun: `test-results/export-exports-the-short-l-f86dc-p-WebM-and-restores-preview-chromium/export-720p.webm`.
+- Preserved copy: `%TEMP%/code-music-task5-export-720p.webm`.
+- Size: 191,687 bytes.
+- Codec IDs: one VP9 video (`V_VP9`), one Opus audio (`A_OPUS`).
+
+## Files changed
+
+- `src/features/stage/HologramStage.tsx`
+- `src/features/stage/HologramStage.test.tsx`
+- `src/features/stage/CinematicLighting.tsx`
+- `src/features/stage/ScoreReassembly.tsx`
+- `src/features/stage/cityLayout.ts`
+- `src/features/stage/cityLayout.test.ts`
+- `e2e/happy-path.spec.ts`
+- `e2e/app-driver.ts`
+- `e2e/export.spec.ts`
+
+## Concerns
+
+- Magenta is intentionally sparse and can be subtle in deterministic screenshots; it remains present as the accent tier rather than competing with cyan notes.
+- The production entry chunk remains above Vite's advisory 500 kB warning; FFmpeg remains deferred and this task did not alter that architecture.
+- Vitest emits the pre-existing `Multiple instances of Three.js` warning in the stage test; it does not fail tests or production rendering.
+
+## Commit
+
+`feat: integrate cyberpunk city music flight`

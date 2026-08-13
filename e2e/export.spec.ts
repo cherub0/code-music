@@ -31,7 +31,7 @@ async function startExport(page: Page, resolution: '720p' | '1080p', format: 'we
   return page.getByRole('link', { name: format === 'mp4' ? 'Download MP4' : 'Download WebM' });
 }
 
-test('exports the short local fixture as a non-empty 720p WebM and restores preview', async ({ page }) => {
+test('exports the short local fixture as a non-empty 720p WebM and restores preview', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const externalRequests = observeExternalRequests(page);
   await page.goto('/');
@@ -45,6 +45,7 @@ test('exports the short local fixture as a non-empty 720p WebM and restores prev
   const link = await startExport(page, '720p', 'webm');
   await expect(link).toBeVisible({ timeout: 30_000 });
   const download = await downloadResult(page, link, /^video\/webm(?:;|$)/);
+  await download.saveAs(testInfo.outputPath('export-720p.webm'));
   expect(download.suggestedFilename()).toMatch(/^demo-720p-\d{8}T\d{6}\.webm$/);
 
   await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
