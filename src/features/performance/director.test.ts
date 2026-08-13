@@ -19,6 +19,28 @@ describe('cinematic director', () => {
     expect(directorStateAt(input({ time: 12.14, impact: { age: 0.14, energy: 0.5, lowEnergy: 0.3 } }))).toEqual(expected);
   });
 
+  it('advances the boot camera farther down the city by assemble', () => {
+    const boot = directorStateAt(input({ time: 0 })).camera;
+    const assemble = directorStateAt(input({ time: 28 })).camera;
+    expect(boot.position[2]).toBeLessThan(assemble.position[2]);
+  });
+
+  it('places the perform camera later on the score than assemble', () => {
+    const assemble = directorStateAt(input({ time: 28 })).camera;
+    const perform = directorStateAt(input({ time: 60 })).camera;
+    expect(perform.position[2]).toBeGreaterThan(assemble.position[2]);
+  });
+
+  it.each([
+    [0, 'boot'], [11.99, 'boot'], [12, 'fracture'], [27.99, 'fracture'], [28, 'assemble'], [44.99, 'assemble'],
+  ] as const)(
+    'keeps the %s camera inside the cleared central city corridor during %s', (time, _act) => {
+      const camera = directorStateAt(input({ time })).camera;
+      expect(Math.abs(camera.position[0])).toBeLessThanOrEqual(2.5);
+      expect(Math.abs(camera.target[0])).toBeLessThanOrEqual(2.5);
+    },
+  );
+
   it('keeps choreography identical across quality tiers', () => {
     const high = directorStateAt(input({ time: 33, quality: 'high' }));
     const low = directorStateAt(input({ time: 33, quality: 'low' }));
@@ -37,6 +59,12 @@ describe('cinematic director', () => {
     expect(accented.camera).toEqual(calm.camera);
   });
 
+  it('keeps camera data identical when only an ordinary impact changes', () => {
+    const calm = directorStateAt(input({ time: 60 }));
+    const accented = directorStateAt(input({ time: 60, impact: { age: 0.01, energy: 1, lowEnergy: 1 } }));
+    expect(accented.camera).toEqual(calm.camera);
+  });
+
   it('uses one restrained camera impulse only at the principal fracture', () => {
     const before = directorStateAt(input({ time: 11.99 })).camera.position;
     const impact = directorStateAt(input({ time: 12.06 })).camera.position;
@@ -45,6 +73,11 @@ describe('cinematic director', () => {
     expect(Math.abs(impact[0])).toBeLessThan(0.06);
     expect(settled[0]).toBe(0);
     expect(before[0]).not.toBe(impact[0]);
+  });
+
+  it('settles the principal camera impulse at 180 ms after fracture', () => {
+    const settled = directorStateAt(input({ time: 12.18 })).camera;
+    expect(settled.position[0]).toBe(0);
   });
 
   it('keeps the perform camera in a readable oblique score view', () => {

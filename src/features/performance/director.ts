@@ -16,6 +16,8 @@ export type DirectorState = {
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 const fractureStart = (duration: number) => duration >= 20 ? duration * 0.12 : duration >= 8 ? 2 : duration * 0.2;
+const SCORE_TRAVEL = 1.5;
+const PRINCIPAL_IMPULSE_DURATION = 0.18;
 
 export function directorStateAt(input: DirectorInput): DirectorState {
   const time = Math.max(0, input.time);
@@ -23,29 +25,28 @@ export function directorStateAt(input: DirectorInput): DirectorState {
   const frame = performanceFrame(time, duration, input.seed);
   const fractureAge = time - fractureStart(duration);
   const flash = fractureAge >= 0 && fractureAge < 0.12 ? (1 - fractureAge / 0.12) ** 2 : 0;
-  const principalImpulse = fractureAge >= 0 && fractureAge < 0.18
-    ? Math.sin(fractureAge / 0.18 * Math.PI) * (1 - fractureAge / 0.18)
+  const principalImpulse = fractureAge >= 0 && fractureAge < PRINCIPAL_IMPULSE_DURATION - 1e-9
+    ? Math.sin(fractureAge / PRINCIPAL_IMPULSE_DURATION * Math.PI) * (1 - fractureAge / PRINCIPAL_IMPULSE_DURATION)
     : 0;
-  const shakeX = Math.sin(fractureAge * 34) * principalImpulse * 0.045;
-  const shakeY = Math.sin(fractureAge * 27) * principalImpulse * 0.025;
-  const scoreZ = time * 1.5;
-  const orbit = frame.assemblyProgress * Math.PI * (2 / 3);
-  const flight = frame.act === 'perform' ? frame.actProgress : 0;
+  const shakeX = principalImpulse === 0 ? 0 : Math.sin(fractureAge * 34) * principalImpulse * 0.045;
+  const shakeY = principalImpulse === 0 ? 0 : Math.sin(fractureAge * 27) * principalImpulse * 0.025;
+  const scoreZ = time * SCORE_TRAVEL;
+  const flightBlend = frame.act === 'perform' ? clamp01(frame.actProgress * 4) : 0;
 
   let position: [number, number, number];
   let target: [number, number, number];
   if (frame.act === 'boot') {
-    position = [mix(0.9, 0.15, frame.actProgress) + shakeX, mix(0.55, 0.1, frame.actProgress) + shakeY, mix(-13, -7.2, frame.actProgress)];
-    target = [0, 0.15, 0];
+    position = [mix(-0.55, -0.18, frame.actProgress) + shakeX, mix(0.65, 0.45, frame.actProgress) + shakeY, scoreZ - 10.6];
+    target = [0.1, 0.15, scoreZ + 8.8];
   } else if (frame.act === 'fracture') {
-    position = [shakeX, 0.2 + shakeY, mix(-6.4, -8.8, frame.actProgress)];
-    target = [0, 0.2, mix(0, 3, frame.actProgress)];
+    position = [shakeX, 0.4 + shakeY, scoreZ - 9.8];
+    target = [0, 0.15, scoreZ + 8.9];
   } else if (frame.act === 'assemble') {
-    position = [Math.cos(orbit) * 7 + shakeX, 2.8 + Math.sin(orbit * 0.6) + shakeY, scoreZ - 8 + Math.sin(orbit) * 5];
-    target = [0, 0, scoreZ + 2];
+    position = [mix(-0.1, 0.45, frame.actProgress) + shakeX, mix(0.4, 0.65, frame.actProgress) + shakeY, scoreZ - 9.4];
+    target = [mix(0, 0.3, frame.actProgress), 0.1, scoreZ + 9.5];
   } else {
-    position = [4.2 + Math.sin(time * 0.08) * 0.28 + shakeX, 2.25 + Math.sin(time * 0.11) * 0.1 + shakeY, scoreZ - mix(11, 8.5, flight)];
-    target = [Math.sin((scoreZ + 6) * 0.12) * 0.5, 0, scoreZ + 7];
+    position = [mix(0.45, 4.3, flightBlend) + shakeX, mix(0.65, 2.35, flightBlend) + shakeY, scoreZ - mix(9.4, 7.4, flightBlend)];
+    target = [mix(0.3, 0, flightBlend), mix(0.1, 0.25, flightBlend), scoreZ + mix(9.5, 6.2, flightBlend)];
   }
 
   return {
