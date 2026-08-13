@@ -5,6 +5,8 @@ import { directorStateAt } from '../performance/director';
 import { buildImpactTimeline, impactStateAt } from '../performance/impacts';
 import type { ScoreLayout } from '../score/layout';
 import { CameraRig } from './CameraRig';
+import { DirectorCamera } from './DirectorCamera';
+import { CinematicLighting } from './CinematicLighting';
 import { CodeTerminal } from './CodeTerminal';
 import { CodeMonolith } from './CodeMonolith';
 import { ScoreRibbon } from './ScoreRibbon';
@@ -83,9 +85,7 @@ export function HologramStage({
     >
       <color args={['#02040c']} attach="background" />
       <fog args={['#030611', 16, 86]} attach="fog" />
-      <ambientLight color="#204460" intensity={0.58} />
-      <pointLight color="#46f7ff" intensity={18} position={[-6, 5, -2]} distance={30} />
-      <pointLight color="#ff3fc8" intensity={14} position={[7, -2, 7]} distance={36} />
+      {CINEMATIC_STAGE ? <CinematicLighting previewQuality={previewQuality} quality={quality} state={director.lighting} /> : <><ambientLight color="#204460" intensity={0.58} /><pointLight color="#46f7ff" intensity={18} position={[-6, 5, -2]} distance={30} /><pointLight color="#ff3fc8" intensity={14} position={[7, -2, 7]} distance={36} /></>}
 
       {CINEMATIC_STAGE
         ? <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
@@ -99,8 +99,8 @@ export function HologramStage({
         noteWindowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8}
         score={score}
       />}
-      <CameraRig frame={frame} logicalTime={logicalTime} score={score} />
-      <StageEffects logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
+      {CINEMATIC_STAGE ? <DirectorCamera state={director.camera} /> : <CameraRig frame={frame} logicalTime={logicalTime} score={score} />}
+      <StageEffects flash={director.fracture.flash} focusDistance={director.camera.focusDistance} logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
       <StageTelemetry />
     </Canvas>
   );

@@ -5,6 +5,8 @@ import { Uniform } from 'three';
 import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 
 type StageEffectsProps = {
+  flash?: number;
+  focusDistance?: number;
   logicalTime: number;
   previewQuality?: PreviewRenderQuality;
   quality: StageQuality;
@@ -34,7 +36,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `;
 
-export function StageEffects({ logicalTime, previewQuality = 'high', quality }: StageEffectsProps) {
+export function StageEffects({ flash = 0, focusDistance = 10, logicalTime, previewQuality = 'high', quality }: StageEffectsProps) {
   const baseSettings = QUALITY_SETTINGS[quality];
   const settings = quality === 'preview' && previewQuality === 'low'
     ? { ...baseSettings, resolutionScale: 0.4 }
@@ -55,7 +57,7 @@ export function StageEffects({ logicalTime, previewQuality = 'high', quality }: 
 
   return (
     <EffectComposer multisampling={settings.multisampling} resolutionScale={settings.resolutionScale}>
-      <Bloom intensity={settings.bloomIntensity} luminanceThreshold={0.34} mipmapBlur />
+      <Bloom intensity={settings.bloomIntensity + flash * 1.35 + Math.max(0, 10-focusDistance)*0.015} luminanceThreshold={0.34} mipmapBlur />
       <primitive object={grain} />
       <Vignette darkness={0.76} eskil={false} offset={0.18} />
     </EffectComposer>
