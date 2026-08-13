@@ -2,37 +2,52 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
+import { parseMidi } from '../midi/parseMidi';
+import { BUILT_IN_DEMO } from './demoAssets';
 
 const demoDirectory = join(process.cwd(), 'public', 'demo');
 
-function readWaveDuration(bytes: Buffer): number {
-  expect(bytes.toString('ascii', 0, 4)).toBe('RIFF');
-  expect(bytes.toString('ascii', 8, 12)).toBe('WAVE');
-  const byteRate = bytes.readUInt32LE(28);
-  const dataLength = bytes.readUInt32LE(40);
-  return dataLength / byteRate;
-}
-
 describe('built-in demo assets', () => {
-  it('ships a substantial public-domain Fur Elise performance with synchronized audio', async () => {
-    const manifest = JSON.parse(
-      await readFile(join(demoDirectory, 'manifest.json'), 'utf8'),
-    ) as Array<{ title: string; audioUrl: string; midiUrl: string }>;
-
-    expect(manifest).toHaveLength(1);
-    expect(manifest[0]).toMatchObject({
-      title: '贝多芬《致爱丽丝》',
-      audioUrl: '/demo/fur-elise.wav',
-      midiUrl: '/demo/fur-elise.mid',
+  it('declares a redistributable Chinese-vocal demo with exact provenance', async () => {
+    expect(BUILT_IN_DEMO).toMatchObject({
+      title: '心跳的声音 (XinTiaoDeShengYin)',
+      artist: 'Adeline Yeo (HP)',
+      language: 'zh',
+      hasVocals: true,
+      redistributionAllowed: true,
+      license: 'CC BY 4.0',
+      sourceUrl: 'https://freemusicarchive.org/music/adeline-yeo-hp/single/xintiaodeshengyin/',
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+      audioUrl: '/demo/xintiaodeshengyin.mp3',
+      midiUrl: '/demo/xintiaodeshengyin.mid',
     });
 
-    const midi = new Midi(await readFile(join(demoDirectory, 'fur-elise.mid')));
-    const audio = await readFile(join(demoDirectory, 'fur-elise.wav'));
-    const noteCount = midi.tracks.reduce((total, track) => total + track.notes.length, 0);
-    const audioDuration = readWaveDuration(audio);
+    expect(BUILT_IN_DEMO.modificationNotes).toContain('MIDI');
+    expect(BUILT_IN_DEMO.calibrationNotes).toContain('0.000');
+  });
 
+  it('ships a nonempty synchronized Standard MIDI File', async () => {
+    const bytes = await readFile(join(demoDirectory, 'xintiaodeshengyin.mid'));
+    const midi = new Midi(bytes);
+    const projectScore = parseMidi(Uint8Array.from(bytes).buffer);
+    const noteCount = midi.tracks.reduce(
+      (total, track) => total + track.notes.length,
+      0,
+    );
+
+    expect(midi.tracks.length).toBeGreaterThan(0);
     expect(noteCount).toBeGreaterThan(500);
-    expect(midi.duration).toBeGreaterThan(120);
-    expect(Math.abs(audioDuration - midi.duration)).toBeLessThan(0.1);
+    expect(projectScore.tracks).toHaveLength(2);
+    expect(projectScore.notes).toHaveLength(noteCount);
+    expect(midi.duration).toBeGreaterThan(220);
+    expect(Math.abs(232.968 - midi.duration)).toBeLessThanOrEqual(0.25);
+  });
+
+  it('publishes the same licensed metadata through the runtime manifest', async () => {
+    const manifest = JSON.parse(
+      await readFile(join(demoDirectory, 'manifest.json'), 'utf8'),
+    );
+
+    expect(manifest).toEqual([BUILT_IN_DEMO]);
   });
 });

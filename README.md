@@ -24,7 +24,7 @@ npm run build
 npm run preview
 ```
 
-The built-in **贝多芬《致爱丽丝》** pair is available from **Load built-in demo** and is useful for a first run. Its public-domain MIDI and locally synthesized audio share the same note timing, so the score animation stays synchronized throughout the piece.
+The built-in **《心跳的声音 (XinTiaoDeShengYin)》** pair is available from **Load built-in demo**. It is a Mandarin vocal track by Adeline Yeo (HP), distributed under CC BY 4.0. The committed MIDI is a project-created beat/chroma transcription aligned to the recording. Full attribution, source links, adaptation disclosure, and calibration evidence are in [`public/demo/LICENSE.md`](public/demo/LICENSE.md).
 
 ## Use your own audio and MIDI
 
