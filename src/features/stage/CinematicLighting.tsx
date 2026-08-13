@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Color, Matrix4, type InstancedMesh } from 'three';
 import type { DirectorState } from '../performance/director';
 import { mulberry32 } from '../performance/seed';
-import type { CityLayout, CityVector } from './cityLayout';
+import type { BuildingRecord, CityLayout, CityVector } from './cityLayout';
 import { buildCityLayout } from './cityLayout';
 import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 
@@ -14,6 +14,10 @@ type TransformRecord = { position: CityVector; scale: CityVector };
 
 export function cinematicCityLayout(duration: number, density: 'high' | 'low'): CityLayout {
   return buildCityLayout(duration, CITY_SEED, density);
+}
+
+export function cyberpunkTowerLayout(duration: number): BuildingRecord[] {
+  return cinematicCityLayout(duration, 'high').buildings;
 }
 
 function useInstanceMatrices(records: TransformRecord[]) {

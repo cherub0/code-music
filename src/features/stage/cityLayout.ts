@@ -59,7 +59,7 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
       const width = 1.45 + random() * 2.8;
       const height = 5 + random() * 11;
       const depth = 2 + random() * 3;
-      const setback = 4.5 + random() * 5.5;
+      const setback = 4.5 + width / 2 + random() * 5.5;
       const magenta = index % 7 === 0;
       const building: BuildingRecord = {
         position: [side * setback, -4 + height / 2, z + (random() - 0.5) * 1.1],
@@ -72,7 +72,7 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
         buildings.push(building);
         lightStrips.push({
           position: [
-            building.position[0] - side * (width / 2 + 0.035),
+            building.position[0] + side * (width / 2 + 0.035),
             building.position[1],
             building.position[2],
           ],
@@ -87,12 +87,14 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
       }
     }
 
-    if (density === 'high' && blockIndex % 2 === 0) {
-      trafficTrails.push({
+    if (blockIndex % 2 === 0) {
+      const trafficTrail: TrafficTrailRecord = {
         position: [random() > 0.5 ? -1.4 : 1.4, -4.47, z + 1.2],
         scale: [0.07, 0.018, 2.2 + random() * 1.5],
         magenta: blockIndex % 6 === 0,
-      });
+      };
+
+      if (density === 'high') trafficTrails.push(trafficTrail);
     }
   }
 
