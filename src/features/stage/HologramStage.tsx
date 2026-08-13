@@ -8,6 +8,7 @@ import { CameraRig } from './CameraRig';
 import { CodeTerminal } from './CodeTerminal';
 import { CodeMonolith } from './CodeMonolith';
 import { ScoreRibbon } from './ScoreRibbon';
+import { ScoreReassembly } from './ScoreReassembly';
 import { ShardField } from './ShardField';
 import { CinematicFracture } from './CinematicFracture';
 import { StageEffects } from './StageEffects';
@@ -92,12 +93,12 @@ export function HologramStage({
       {CINEMATIC_STAGE
         ? <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />
         : <ShardField frame={frame} score={score} />}
-      <ScoreRibbon
+      {CINEMATIC_STAGE ? <ScoreReassembly logicalTime={logicalTime} state={director} score={score} windowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8} /> : <ScoreRibbon
         frame={frame}
         logicalTime={logicalTime}
         noteWindowSeconds={previewQuality === 'low' && quality === 'preview' ? 4 : 8}
         score={score}
-      />
+      />}
       <CameraRig frame={frame} logicalTime={logicalTime} score={score} />
       <StageEffects logicalTime={logicalTime} previewQuality={previewQuality} quality={quality} />
       <StageTelemetry />
