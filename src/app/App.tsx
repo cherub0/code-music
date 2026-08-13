@@ -124,6 +124,7 @@ export function App() {
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoStatus, setDemoStatus] = useState<string | null>(null);
   const [midiError, setMidiError] = useState<string | null>(null);
+  const [midiLoading, setMidiLoading] = useState(false);
   const [midiRecovery, setMidiRecovery] = useState<string | null>(null);
   const [midiScore, setMidiScore] = useState<NormalizedScore | null>(null);
   const [previewQuality, setPreviewQuality] = useState<PreviewQuality>('Auto');
@@ -199,8 +200,16 @@ export function App() {
     setDemoLoading(false);
   };
 
+  const invalidatePerformance = () => {
+    if (performanceInitialized) transport.pause();
+    setPerformanceInitialized(false);
+  };
+
   const handleAudioSelected = (file: File) => {
     cancelPendingDemo();
+    invalidatePerformance();
+    setAudio(null);
+    setAudioUrl(null);
     const result = validateAudioFile(file);
     if (!result.ok) {
       setAudioError(result.message);
@@ -209,7 +218,6 @@ export function App() {
 
     setAudio(metadataFrom(file));
     setAudioUrl(createAudioUrl(file));
-    setPerformanceInitialized(false);
     setAudioError(null);
     setDemoError(null);
     setDemoStatus(null);
@@ -218,14 +226,16 @@ export function App() {
 
   const handleMidiSelected = async (file: File) => {
     cancelPendingDemo();
-    setPerformanceInitialized(false);
+    invalidatePerformance();
     const requestId = ++midiRequestRef.current;
+    setMidiLoading(true);
     const result = validateMidiFile(file);
     if (!result.ok) {
       setMidi(null);
       setMidiScore(null);
       setMidiError(result.message);
       setMidiRecovery('Choose another MIDI file and try again.');
+      setMidiLoading(false);
       return;
     }
 
@@ -247,14 +257,17 @@ export function App() {
       setMidiScore(null);
       setMidiError(recovery.message);
       setMidiRecovery(recovery.recovery);
+    } finally {
+      if (midiRequestRef.current === requestId) setMidiLoading(false);
     }
   };
 
   const handleDemoRequested = async () => {
     const requestId = ++demoRequestRef.current;
     midiRequestRef.current += 1;
+    setMidiLoading(false);
     setDemoLoading(true);
-    setPerformanceInitialized(false);
+    invalidatePerformance();
     setDemoError(null);
     setDemoStatus(null);
 
@@ -306,6 +319,8 @@ export function App() {
   const canInitialize = audio !== null
     && midi !== null
     && midiScore !== null
+    && !demoLoading
+    && !midiLoading
     && transport.state !== 'error';
   const performanceReady = performanceInitialized && canInitialize;
   const lockedOffset = exportLock?.offsetSeconds ?? offsetSeconds;

@@ -84,6 +84,33 @@ class DurationAudio extends EventTarget {
   }
 }
 
+function installSupportedWebmEnvironment() {
+  const originalCaptureStream = Object.getOwnPropertyDescriptor(
+    HTMLCanvasElement.prototype,
+    'captureStream',
+  );
+  Object.defineProperty(HTMLCanvasElement.prototype, 'captureStream', {
+    configurable: true,
+    value: vi.fn(),
+  });
+  class SupportedAudioContext {
+    createMediaStreamDestination() {}
+  }
+  class SupportedMediaRecorder {
+    static isTypeSupported() { return true; }
+  }
+  vi.stubGlobal('AudioContext', SupportedAudioContext);
+  vi.stubGlobal('MediaRecorder', SupportedMediaRecorder);
+
+  return () => {
+    if (originalCaptureStream) {
+      Object.defineProperty(HTMLCanvasElement.prototype, 'captureStream', originalCaptureStream);
+    } else {
+      Reflect.deleteProperty(HTMLCanvasElement.prototype, 'captureStream');
+    }
+  };
+}
+
 describe('App file intake', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -144,6 +171,93 @@ describe('App file intake', () => {
     expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeEnabled();
     expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
     expect(hologramStageMock).toHaveBeenCalled();
+  });
+
+  it('disables the initialized performance while replacement MIDI parsing is pending and requires a fresh launch', async () => {
+    const restoreCaptureStream = installSupportedWebmEnvironment();
+    const user = userEvent.setup();
+    const audio = new DurationAudio(60);
+    vi.stubGlobal('Audio', vi.fn(() => audio));
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:initial-audio'),
+      revokeObjectURL: vi.fn(),
+    });
+    const initialMidi = new Midi();
+    initialMidi.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    const replacementMidi = new Midi();
+    replacementMidi.addTrack().addNote({ midi: 67, time: 0, duration: 1, velocity: 0.7 });
+    const replacementFile = midiFile(replacementMidi, 'replacement.mid');
+    const pendingRead = deferred<ArrayBuffer>();
+
+    try {
+      render(<App />);
+      await user.upload(
+        screen.getByLabelText('选择音乐文件'),
+        new File(['audio'], 'initial.ogg', { type: 'audio/ogg' }),
+      );
+      await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(initialMidi, 'initial.mid'));
+      await user.click(screen.getByRole('button', { name: '启动演出' }));
+      expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: 'Play performance' }));
+      expect(await screen.findByRole('button', { name: 'Pause performance' })).toBeEnabled();
+
+      readMidiBytesMock.mockImplementation((file: File) => (
+        file === replacementFile ? pendingRead.promise : readFileBytes(file)
+      ));
+      await user.upload(screen.getByLabelText('选择 MIDI 文件'), replacementFile);
+
+      expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+      expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeDisabled();
+      expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+
+      await act(async () => pendingRead.resolve(midiBytes(replacementMidi)));
+      await waitFor(() => expect(screen.getByText('replacement.mid')).toBeInTheDocument());
+
+      expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+      expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeDisabled();
+      expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+    } finally {
+      restoreCaptureStream();
+    }
+  });
+
+  it('invalidates an initialized performance at the start of an invalid audio replacement', async () => {
+    const restoreCaptureStream = installSupportedWebmEnvironment();
+    const user = userEvent.setup({ applyAccept: false });
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
+    const source = new Midi();
+    source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+
+    try {
+      render(<App />);
+      await user.upload(
+        screen.getByLabelText('选择音乐文件'),
+        new File(['audio'], 'initial.ogg', { type: 'audio/ogg' }),
+      );
+      await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'keeper.mid'));
+      await user.click(screen.getByRole('button', { name: '启动演出' }));
+      expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
+
+      await user.upload(
+        screen.getByLabelText('选择音乐文件'),
+        new File(['invalid'], 'replacement.txt', { type: 'text/plain' }),
+      );
+
+      expect(screen.getByText('keeper.mid')).toBeInTheDocument();
+      expect(screen.queryByText('initial.ogg')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+      expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeDisabled();
+      expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+    } finally {
+      restoreCaptureStream();
+    }
   });
 
   it('enables real-time local export with selectable WebM and MP4 after audio and MIDI load', async () => {
@@ -342,6 +456,7 @@ describe('App file intake', () => {
 
   it('replaces one valid file without clearing the other valid file', async () => {
     const user = userEvent.setup();
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
     const source = new Midi();
     source.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.5 });
     render(<App />);
@@ -351,6 +466,8 @@ describe('App file intake', () => {
       new File(['first'], 'first.ogg', { type: 'audio/ogg' }),
     );
     await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(source, 'score.mid'));
+    await user.click(screen.getByRole('button', { name: '启动演出' }));
+    expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
     await user.upload(
       screen.getByLabelText('选择音乐文件'),
       new File(['second'], 'second.ogg', { type: 'audio/ogg' }),
@@ -359,6 +476,8 @@ describe('App file intake', () => {
     expect(screen.getByText('second.ogg')).toBeInTheDocument();
     expect(screen.getByText('score.mid')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+    expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
   });
 
   it('shows the failed audio filename, decode reason, and replacement recovery, then clears it', async () => {
@@ -435,6 +554,66 @@ describe('App file intake', () => {
     expect(hologramStageMock.mock.lastCall?.[0]).toMatchObject({ seed: 9234 });
   });
 
+  it('disables the initialized performance while the demo is pending and requires a fresh launch after load', async () => {
+    const restoreCaptureStream = installSupportedWebmEnvironment();
+    const user = userEvent.setup();
+    vi.stubGlobal('Audio', vi.fn(() => new DurationAudio(60)));
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:initial-audio'),
+      revokeObjectURL: vi.fn(),
+    });
+    const initialMidi = new Midi();
+    initialMidi.addTrack().addNote({ midi: 60, time: 0, duration: 1, velocity: 0.6 });
+    const demoMidi = new Midi();
+    demoMidi.addTrack().addNote({ midi: 64, time: 0, duration: 1, velocity: 0.7 });
+    const audioResponse = deferred<Response>();
+    const midiResponse = deferred<Response>();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/demo/manifest.json') return new Response(JSON.stringify(demoManifest()));
+      if (url === '/demo/demo.ogg') return audioResponse.promise;
+      if (url === '/demo/demo.mid') return midiResponse.promise;
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      render(<App />);
+      await user.upload(
+        screen.getByLabelText('选择音乐文件'),
+        new File(['audio'], 'initial.ogg', { type: 'audio/ogg' }),
+      );
+      await user.upload(screen.getByLabelText('选择 MIDI 文件'), midiFile(initialMidi, 'initial.mid'));
+      await user.click(screen.getByRole('button', { name: '启动演出' }));
+      expect(screen.getByLabelText('Holographic performance stage')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: 'Play performance' }));
+      expect(await screen.findByRole('button', { name: 'Pause performance' })).toBeEnabled();
+
+      await user.click(screen.getByRole('button', { name: 'Load built-in demo' }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+      expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+      expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeDisabled();
+      expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+
+      await act(async () => {
+        audioResponse.resolve(new Response(new Blob(['demo audio'], { type: 'audio/ogg' })));
+        midiResponse.resolve(new Response(midiBytes(demoMidi)));
+      });
+      expect(await screen.findByText('Project Signal Etude loaded.')).toBeInTheDocument();
+
+      expect(screen.getByRole('button', { name: '启动演出' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Play performance' })).toBeDisabled();
+      expect(screen.getByRole('slider', { name: 'Timeline position' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Start export' })).toBeDisabled();
+      expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
+    } finally {
+      restoreCaptureStream();
+    }
+  });
+
   it('cancels a pending demo when manual audio is selected and ignores late demo assets', async () => {
     const user = userEvent.setup();
     const audioResponse = deferred<Response>();
@@ -474,6 +653,8 @@ describe('App file intake', () => {
     });
     expect(screen.queryByText('Project Signal Etude loaded.')).not.toBeInTheDocument();
     expect(screen.queryByText('demo.mid')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+    expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
   });
 
   it('cancels a pending demo when manual MIDI is selected and ignores late demo assets', async () => {
@@ -514,6 +695,8 @@ describe('App file intake', () => {
     });
     expect(screen.queryByText('Project Signal Etude loaded.')).not.toBeInTheDocument();
     expect(screen.queryByText('demo.ogg')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '启动演出' })).toBeDisabled();
+    expect(screen.queryByLabelText('Holographic performance stage')).not.toBeInTheDocument();
   });
 
   it('requires 120 consecutive slow intervals, resets after a healthy interval, and allows High restore', async () => {

@@ -59,6 +59,7 @@ test('@extended @manual accepts local files and rebuilds all four acts', async (
   await page.goto('/');
   await page.getByLabel('选择音乐文件').setInputFiles(path.resolve('public/demo/demo.ogg'));
   await page.getByLabel('选择 MIDI 文件').setInputFiles(path.resolve('public/demo/demo.mid'));
+  await page.getByRole('button', { name: '启动演出' }).click();
   await expect(page.getByRole('button', { name: 'Start export' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Play performance' }).click();
