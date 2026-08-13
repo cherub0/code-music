@@ -40,7 +40,7 @@ describe('built-in demo assets', () => {
     expect(noteCount).toBeGreaterThan(500);
     expect(projectScore.tracks).toHaveLength(2);
     expect(projectScore.notes).toHaveLength(noteCount);
-    expect(midi.duration).toBeGreaterThan(220);
+    expect(projectScore.durationSeconds).toBeGreaterThan(220);
     const audioBytes = await readFile(
       join(demoDirectory, 'xintiaodeshengyin.mp3'),
     );
@@ -50,7 +50,9 @@ describe('built-in demo assets', () => {
     expect(audio.frameCount).toBeGreaterThan(0);
     expect(audio.durationSeconds).toBeGreaterThan(220);
     expect(audio.sampleRate).toBe(48_000);
-    expect(Math.abs(audio.durationSeconds - midi.duration)).toBeLessThanOrEqual(0.25);
+    expect(
+      Math.abs(audio.durationSeconds - projectScore.durationSeconds),
+    ).toBeLessThanOrEqual(0.25);
   });
 
   it('publishes the same licensed metadata through the runtime manifest', async () => {
