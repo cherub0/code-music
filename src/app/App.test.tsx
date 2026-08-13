@@ -67,6 +67,9 @@ class FrameSampleAudio extends EventTarget {
   readonly load = vi.fn();
   readonly pause = vi.fn();
   readonly play = vi.fn(async () => undefined);
+  readonly removeAttribute = vi.fn((name: string) => {
+    if (name === 'src') this.src = '';
+  });
 }
 
 class DurationAudio extends EventTarget {
@@ -77,6 +80,9 @@ class DurationAudio extends EventTarget {
   readonly load = vi.fn();
   readonly pause = vi.fn();
   readonly play = vi.fn(async () => undefined);
+  readonly removeAttribute = vi.fn((name: string) => {
+    if (name === 'src') this.src = '';
+  });
 
   constructor(duration: number) {
     super();

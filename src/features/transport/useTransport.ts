@@ -82,8 +82,12 @@ export function useTransport(audioUrl: string | null, audioName: string | null =
   useEffect(() => {
     if (audioUrl) audioElement.pause();
     audioElement.currentTime = 0;
-    audioElement.src = audioUrl ?? '';
-    if (audioUrl) audioElement.load();
+    if (audioUrl) {
+      audioElement.src = audioUrl;
+      audioElement.load();
+    } else {
+      audioElement.removeAttribute('src');
+    }
     setError(null);
     setCurrentTime(0);
     setDuration(readableDuration(audioElement));

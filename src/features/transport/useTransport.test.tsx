@@ -15,6 +15,9 @@ class FakeAudioElement extends EventTarget {
   readonly pause = vi.fn(() => {
     this.paused = true;
   });
+  readonly removeAttribute = vi.fn((name: string) => {
+    if (name === 'src') this.src = '';
+  });
 }
 
 function TransportHarness({ audioName = null, audioUrl }: { audioName?: string | null; audioUrl: string | null }) {
@@ -93,6 +96,39 @@ describe('useTransport', () => {
 
     expect(screen.getByTestId('state')).toHaveTextContent('paused');
     expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+  });
+
+  it('does not assign an empty src while clearing the selected audio', () => {
+    const audio = new FakeAudioElement() as FakeAudioElement & {
+      emptySrcAssignments: number;
+      error: { code: number; message: string } | null;
+    };
+    let source = '';
+    audio.emptySrcAssignments = 0;
+    audio.error = null;
+    Object.defineProperty(audio, 'src', {
+      configurable: true,
+      get: () => source,
+      set: (value: string) => {
+        source = value;
+        if (value === '') {
+          audio.emptySrcAssignments += 1;
+          audio.error = { code: 4, message: 'MEDIA_ELEMENT_ERROR: Empty src attribute' };
+          audio.dispatchEvent(new Event('error'));
+        }
+      },
+    });
+    audio.removeAttribute.mockImplementation((name) => {
+      if (name === 'src') source = '';
+    });
+    vi.stubGlobal('Audio', vi.fn(() => audio));
+    const view = render(<TransportHarness audioName="demo.ogg" audioUrl="blob:demo" />);
+
+    view.rerender(<TransportHarness audioName={null} audioUrl={null} />);
+
+    expect(screen.getByTestId('state')).toHaveTextContent('idle');
+    expect(screen.getByTestId('error')).toBeEmptyDOMElement();
+    expect(audio.emptySrcAssignments).toBe(0);
   });
 
   it('removes media listeners when disposed', () => {
