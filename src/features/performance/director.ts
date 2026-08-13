@@ -8,6 +8,7 @@ export type DirectorInput = {
 export type DirectorState = {
   act: PerformanceAct;
   camera: { position: [number, number, number]; target: [number, number, number]; fov: number; focusDistance: number };
+  narrative: { anchor: [number, number, number] };
   monolith: { opacity: number; crackEnergy: number; scanOffset: number };
   fracture: { progress: number; assembly: number; flash: number; shockwave: number; trailEnergy: number };
   lighting: { cyan: number; magenta: number; atmosphere: number };
@@ -31,6 +32,7 @@ export function directorStateAt(input: DirectorInput): DirectorState {
   const shakeX = principalImpulse === 0 ? 0 : Math.sin(fractureAge * 34) * principalImpulse * 0.045;
   const shakeY = principalImpulse === 0 ? 0 : Math.sin(fractureAge * 27) * principalImpulse * 0.025;
   const scoreZ = time * SCORE_TRAVEL;
+  const narrativeAnchor: [number, number, number] = [0, 0.15, scoreZ + 8.9];
   const flightBlend = frame.act === 'perform' ? clamp01(frame.actProgress * 4) : 0;
 
   let position: [number, number, number];
@@ -52,6 +54,7 @@ export function directorStateAt(input: DirectorInput): DirectorState {
   return {
     act: frame.act,
     camera: { position, target, fov: 48 + flash * 7 - frame.assemblyProgress * 3, focusDistance: frame.act === 'perform' ? 7 : 11 },
+    narrative: { anchor: narrativeAnchor },
     monolith: {
       opacity: frame.act === 'boot' ? 1 : clamp01(1 - frame.fractureProgress * 1.35),
       crackEnergy: clamp01(frame.actProgress * 0.7 + input.impact.lowEnergy * 0.45),

@@ -89,4 +89,21 @@ describe('cinematic director', () => {
     expect(horizontalAngle).toBeGreaterThanOrEqual(27);
     expect(horizontalAngle).toBeLessThanOrEqual(33);
   });
+
+  it.each([
+    [232.968 * 0.06, 'boot'],
+    [232.968 * 0.2, 'fracture'],
+    [232.968 * 0.365, 'assemble'],
+  ] as const)(
+    'keeps the shared narrative anchor ahead of the camera at the real demo %s-second %s sample',
+    (time, _act) => {
+      const state = directorStateAt(input({ duration: 232.968, time }));
+      const forwardDistance = state.narrative.anchor[2] - state.camera.position[2];
+
+      expect(forwardDistance).toBeGreaterThan(14);
+      expect(forwardDistance).toBeLessThan(22);
+      expect(Math.abs(state.narrative.anchor[0] - state.camera.target[0])).toBeLessThan(0.5);
+      expect(Math.abs(state.narrative.anchor[1] - state.camera.target[1])).toBeLessThan(0.75);
+    },
+  );
 });

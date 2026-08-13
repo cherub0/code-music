@@ -12,12 +12,13 @@ export function buildShardModel(seed: number, capacity: number): ShardModel[] {
   return Array.from({ length: capacity }, (_, id) => {
     const column = id % 16; const row = Math.floor(id / 16);
     const origin: Vec3 = [(column / 15 - 0.5) * 8, (row / Math.max(1, Math.ceil(capacity / 16) - 1) - 0.5) * 5, 0];
-    const destinationZ = 4 + id / Math.max(1, capacity - 1) * 56;
+    const destinationZ = -4 + id / Math.max(1, capacity - 1) * 12;
+    const lane = [-2.8, 0, 2.8][id % 3];
     return { id, origin,
-      apex: [origin[0] * 0.3 + (random() - 0.5) * 13, origin[1] + (random() - 0.25) * 10, 3 + random() * 12],
-      destination: [Math.sin(destinationZ * 0.12) * 1.15 + (random() - 0.5) * 0.2, ((id % 5) - 2) * 0.34, destinationZ],
+      apex: [origin[0] * 0.3 + (random() - 0.5) * 10, origin[1] + (random() - 0.35) * 6, 2 + random() * 7],
+      destination: [lane + (random() - 0.5) * 0.2, ((id % 9) - 4) * 0.45, destinationZ],
       rotation: [random() * 7, random() * 8, random() * 9],
-      scale: [0.25 + random() * 0.65, 0.1 + random() * 0.22, 0.04 + random() * 0.08], depthBand: id % 3,
+      scale: [0.18 + random() * 0.42, 0.07 + random() * 0.16, 0.035 + random() * 0.065], depthBand: id % 3,
     };
   });
 }
@@ -30,4 +31,12 @@ export function shardTransformAt(model: ShardModel, state: DirectorState): Shard
   return { position, rotation: model.rotation.map((v) => v * f * (1 - a)) as Vec3,
     scale: model.scale.map((v) => v * (1 + Math.sin(f * Math.PI) * 0.45)) as Vec3,
     trail: state.fracture.trailEnergy * (1 - a) * (0.35 + model.depthBand * 0.25) };
+}
+
+export function worldShardTransformAt(model: ShardModel, state: DirectorState): ShardTransform {
+  const transform = shardTransformAt(model, state);
+  return {
+    ...transform,
+    position: transform.position.map((value, index) => value + state.narrative.anchor[index]) as Vec3,
+  };
 }

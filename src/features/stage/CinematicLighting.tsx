@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Color, Matrix4, type InstancedMesh } from 'three';
 import type { DirectorState } from '../performance/director';
-import { mulberry32 } from '../performance/seed';
 import type { BuildingRecord, CityLayout, CityVector } from './cityLayout';
 import { buildCityLayout } from './cityLayout';
+import { cityAtmosphereAt, type AtmosphereParticle } from './cityAtmosphere';
+import { ensureInstanceColors } from './instanceColors';
 import type { PreviewRenderQuality, StageQuality } from './HologramStage';
 
 const CITY_SEED = 0xc17b3;
@@ -43,7 +44,24 @@ function CityBuildings({ buildings }: Pick<CityLayout, 'buildings'>) {
 
   return <instancedMesh ref={meshRef} args={[undefined, undefined, buildings.length]} frustumCulled={false}>
     <boxGeometry args={[1, 1, 1]} />
-    <meshStandardMaterial color="#01030a" metalness={0.9} roughness={0.24} />
+    <meshStandardMaterial color="#01030a" emissive="#020817" emissiveIntensity={0.72} metalness={0.86} roughness={0.28} />
+  </instancedMesh>;
+}
+
+function CityParticles({ particles, opacity }: { particles: AtmosphereParticle[]; opacity: number }) {
+  const meshRef = useInstanceMatrices(particles);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    ensureInstanceColors(mesh, particles.length);
+    particles.forEach((particle, index) => mesh.setColorAt(index, particle.magenta ? MAGENTA : CYAN));
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [meshRef, particles]);
+
+  return <instancedMesh ref={meshRef} args={[undefined, undefined, particles.length]} frustumCulled={false}>
+    <sphereGeometry args={[1, 5, 5]} />
+    <meshBasicMaterial opacity={opacity} transparent toneMapped={false} vertexColors />
   </instancedMesh>;
 }
 
@@ -81,6 +99,7 @@ function TrafficTrails({ trafficTrails }: Pick<CityLayout, 'trafficTrails'>) {
     const mesh = meshRef.current;
     if (!mesh) return;
 
+    ensureInstanceColors(mesh, trafficTrails.length);
     trafficTrails.forEach((trail, index) => mesh.setColorAt(index, trail.magenta ? MAGENTA : CYAN));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [meshRef, trafficTrails]);
@@ -91,23 +110,20 @@ function TrafficTrails({ trafficTrails }: Pick<CityLayout, 'trafficTrails'>) {
   </instancedMesh>;
 }
 
-export function CinematicLighting({ duration, state, previewQuality, quality, seed = CITY_SEED, density }: { duration:number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality; seed?: number; density?: 'high' | 'low' }) {
+export function CinematicLighting({ duration, logicalTime, state, previewQuality, quality, seed = CITY_SEED, density }: { duration:number; logicalTime: number; state: DirectorState['lighting']; previewQuality: PreviewRenderQuality; quality: StageQuality; seed?: number; density?: 'high' | 'low' }) {
   const low = density ? density === 'low' : quality === 'preview' && previewQuality === 'low';
-  const particles = useMemo(() => {
-    const random = mulberry32(0xa7105);
-    return Array.from({ length: low ? 40 : 96 }, () => [
-      (random() - 0.5) * 40,
-      (random() - 0.5) * 22,
-      random() * 90,
-    ] as CityVector);
-  }, [low]);
   const city = useMemo(() => cinematicCityLayout(duration, low ? 'low' : 'high', seed), [duration, low, seed]);
+  const atmosphere = useMemo(
+    () => cityAtmosphereAt(logicalTime, duration, seed, low ? 'low' : 'high'),
+    [duration, logicalTime, low, seed],
+  );
+  const [cyanLight, magentaLight, overheadLight] = atmosphere.lights;
 
   return <group name="cyberpunk-city">
-    <ambientLight color="#020611" intensity={0.18 + state.atmosphere * 0.15}/>
-    <pointLight color="#48f5ff" intensity={12 * state.cyan} position={[-7,5,-2]} distance={45}/>
-    <pointLight color="#ff35bd" intensity={10 * state.magenta} position={[7,-2,4]} distance={48}/>
-    {!low && <spotLight color="#a7fbff" intensity={18 * state.cyan} position={[0,7,-7]} angle={0.35} penumbra={0.7}/>}
+    <ambientLight color="#071323" intensity={0.28 + state.atmosphere * 0.2}/>
+    <pointLight color="#48f5ff" decay={1.6} intensity={20 * state.cyan} position={cyanLight.position} distance={54}/>
+    <pointLight color="#ff35bd" decay={1.6} intensity={16 * state.magenta} position={magentaLight.position} distance={46}/>
+    {!low && <pointLight color="#a7fbff" decay={1.7} intensity={13 * state.cyan} position={overheadLight.position} distance={38}/>}
     <mesh position={[0, -4.7, city.length / 2]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[8.9, city.length + 8]} />
       <meshStandardMaterial color="#010207" metalness={0.88} roughness={0.3} />
@@ -116,9 +132,6 @@ export function CinematicLighting({ duration, state, previewQuality, quality, se
     <CityBuildings buildings={city.buildings} />
     <CityLightStrips lightStrips={city.lightStrips} />
     {!low && <TrafficTrails trafficTrails={city.trafficTrails} />}
-    {particles.map((particle, index) => <mesh key={index} position={particle} scale={0.012 + (index % 5) * 0.006}>
-      <sphereGeometry args={[1,4,4]}/>
-      <meshBasicMaterial color={index % 7 === 0 ? '#ff35bd' : '#75f8ff'} opacity={0.2 + state.atmosphere * 0.25} transparent toneMapped={false}/>
-    </mesh>)}
+    <CityParticles particles={atmosphere.particles} opacity={0.28 + state.atmosphere * 0.32} />
   </group>;
 }

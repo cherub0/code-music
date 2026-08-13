@@ -2,10 +2,17 @@ import type { PositionedNote as ScoreNote } from '../score/layout';
 
 export type NoteFlightRecord = {
   noteId: string;
+  active: boolean;
   position: [number, number, number];
   scale: number;
   color: string;
   energy: number;
+  trailLength: number;
+};
+
+export type NoteFlightRenderStyle = {
+  brightness: number;
+  rgb: [number, number, number];
   trailLength: number;
 };
 
@@ -36,6 +43,7 @@ export function noteFlightRecord(note: ScoreNote, logicalTime: number): NoteFlig
 
   return {
     noteId: note.id,
+    active,
     position: [
       LANE_POSITIONS[trackHash(note.trackId) % LANE_POSITIONS.length],
       ((pitch - MIN_PITCH) / (MAX_PITCH - MIN_PITCH)) * 5.4 - 2.1,
@@ -45,5 +53,30 @@ export function noteFlightRecord(note: ScoreNote, logicalTime: number): NoteFlig
     color: active && velocity >= 0.67 ? '#ff4acb' : '#4ef8ff',
     energy,
     trailLength: clamp(Math.max(0, note.durationSeconds) * SECONDS_TO_WORLD_UNITS, 0.2, 6),
+  };
+}
+
+export function noteFlightRenderStyle(record: NoteFlightRecord): NoteFlightRenderStyle {
+  const brightness = record.active
+    ? 0.65 + record.energy * 0.85
+    : 0.18 + record.energy * 0.35;
+  const base: [number, number, number] = record.color === '#ff4acb'
+    ? [1, 0.08, 0.62]
+    : [0.12, 0.88, 1];
+  return {
+    brightness,
+    rgb: base.map((channel) => channel * brightness) as [number, number, number],
+    trailLength: record.active ? Math.min(2.2, record.trailLength) : 0,
+  };
+}
+
+export function noteFlightRenderBatch(records: NoteFlightRecord[]) {
+  const notes = records.map((record) => ({ record, style: noteFlightRenderStyle(record) }));
+  return {
+    notes,
+    activeNotes: notes.filter(({ record }) => record.active),
+    activeCyan: notes.filter(({ record }) => record.active && record.color !== '#ff4acb'),
+    activeMagenta: notes.filter(({ record }) => record.active && record.color === '#ff4acb'),
+    trails: notes.filter(({ style }) => style.trailLength > 0),
   };
 }

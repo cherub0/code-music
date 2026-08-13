@@ -1,5 +1,6 @@
 import { addAfterEffect, addEffect, Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
+import { Box3, Frustum, Matrix4, type InstancedMesh } from 'three';
 import { performanceFrame } from '../performance/frame';
 import { directorStateAt } from '../performance/director';
 import { buildImpactTimeline, impactStateAt } from '../performance/impacts';
@@ -69,6 +70,16 @@ function StageTelemetry() {
         }
         if ('isInstancedMesh' in object && object.isInstancedMesh === true) instancedPools += 1;
       });
+      const semanticObjectInFrustum = (name: string) => {
+        const object = scene.getObjectByName(name);
+        if (!object || !object.visible) return false;
+        camera.updateMatrixWorld();
+        object.updateWorldMatrix(true, true);
+        const bounds = new Box3().setFromObject(object, true);
+        const projection = new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        return !bounds.isEmpty() && new Frustum().setFromProjectionMatrix(projection).intersectsBox(bounds);
+      };
+      const activeTrails = scene.getObjectByName('active-note-trails');
       canvas.dataset.drawCalls = String(renderer.info.render.calls);
       canvas.dataset.geometries = String(renderer.info.memory.geometries);
       canvas.dataset.textures = String(renderer.info.memory.textures);
@@ -78,6 +89,13 @@ function StageTelemetry() {
       canvas.dataset.cityPools = String(cityPools);
       canvas.dataset.noteFlightLayers = String(noteFlightLayers);
       canvas.dataset.noteFlightPools = String(noteFlightPools);
+      canvas.dataset.activeNoteTrails = String(
+        activeTrails && 'isInstancedMesh' in activeTrails && activeTrails.isInstancedMesh === true
+          ? (activeTrails as InstancedMesh).count
+          : 0,
+      );
+      canvas.dataset.monolithInFrustum = String(semanticObjectInFrustum('code-monolith'));
+      canvas.dataset.fractureInFrustum = String(semanticObjectInFrustum('cinematic-fracture'));
       canvas.dataset.cameraPose = String(camera.userData.directorPose ?? '');
     });
 
@@ -128,9 +146,9 @@ export function HologramStage({
     >
       <color args={['#02040c']} attach="background" />
       <fog args={['#030611', 16, 86]} attach="fog" />
-      <CinematicLighting {...composition.city} previewQuality={previewQuality} state={director.lighting} />
+      <CinematicLighting {...composition.city} logicalTime={logicalTime} previewQuality={previewQuality} state={director.lighting} />
 
-      <CodeMonolith logicalTime={logicalTime} seed={seed} state={director.monolith} />
+      <CodeMonolith anchor={director.narrative.anchor} logicalTime={logicalTime} seed={seed} state={director.monolith} />
       <CinematicFracture capacity={quality === 'preview' && previewQuality === 'low' ? 96 : 192} seed={seed} state={director} />
       <ScoreReassembly logicalTime={logicalTime} state={director} score={score} windowSeconds={composition.noteFlight.windowSeconds} />
       <DirectorCamera state={director.camera} />

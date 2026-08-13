@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScoreNote } from '../score/layout';
-import { noteFlightRecord } from './noteFlight';
+import { noteFlightRecord, noteFlightRenderBatch, noteFlightRenderStyle } from './noteFlight';
 
 function note(overrides: Partial<ScoreNote> = {}): ScoreNote {
   return {
@@ -53,5 +53,38 @@ describe('noteFlightRecord', () => {
     const sustained = note({ durationSeconds: 4, velocity: 0.8 });
 
     expect(noteFlightRecord(sustained, 3)).toEqual(noteFlightRecord(sustained, 3));
+  });
+
+  it('renders an active note materially brighter than the same future note', () => {
+    const future = noteFlightRenderStyle(noteFlightRecord(note({ velocity: 0.8 }), 1));
+    const active = noteFlightRenderStyle(noteFlightRecord(note({ velocity: 0.8 }), 2.25));
+
+    expect(active.brightness).toBeGreaterThan(future.brightness * 3);
+    expect(Math.max(...active.rgb)).toBeGreaterThan(Math.max(...future.rgb) * 3);
+  });
+
+  it('keeps trails short and only emits them while the note is active', () => {
+    const future = noteFlightRenderStyle(noteFlightRecord(note({ durationSeconds: 6 }), 1));
+    const active = noteFlightRenderStyle(noteFlightRecord(note({ durationSeconds: 6 }), 3));
+    const released = noteFlightRenderStyle(noteFlightRecord(note({ durationSeconds: 1 }), 4));
+
+    expect(future.trailLength).toBe(0);
+    expect(released.trailLength).toBe(0);
+    expect(active.trailLength).toBeGreaterThan(0);
+    expect(active.trailLength).toBeLessThanOrEqual(2.2);
+  });
+
+  it('builds a bounded renderer batch with trails only for active notes', () => {
+    const records = [
+      noteFlightRecord(note({ id: 'past', startSeconds: 0, durationSeconds: 1 }), 3),
+      noteFlightRecord(note({ id: 'active', startSeconds: 2, durationSeconds: 4 }), 3),
+      noteFlightRecord(note({ id: 'future', startSeconds: 6, durationSeconds: 1 }), 3),
+    ];
+    const batch = noteFlightRenderBatch(records);
+
+    expect(batch.notes).toHaveLength(3);
+    expect(batch.activeNotes.map(({ record }) => record.noteId)).toEqual(['active']);
+    expect(batch.trails.map(({ record }) => record.noteId)).toEqual(['active']);
+    expect(batch.trails[0].style.trailLength).toBeLessThanOrEqual(2.2);
   });
 });

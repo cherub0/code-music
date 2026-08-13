@@ -24,7 +24,7 @@ npm run build
 npm run preview
 ```
 
-The built-in **《心跳的声音 (XinTiaoDeShengYin)》** pair is available from **Load built-in demo**. It is a Mandarin vocal track by Adeline Yeo (HP), distributed under CC BY 4.0. The committed MIDI is a project-created beat/chroma transcription aligned to the recording. Full attribution, source links, adaptation disclosure, and calibration evidence are in [`public/demo/LICENSE.md`](public/demo/LICENSE.md).
+The built-in **《心跳的声音 (XinTiaoDeShengYin)》** pair is available from **Load built-in demo**. It is a Mandarin vocal track by Adeline Yeo (HP), distributed under CC BY 4.0; its source page identifies the vocal as AI-generated. The committed MIDI is a project-created beat/chroma transcription aligned to the recording. Full attribution, source links, AI-vocal disclosure, adaptation disclosure, and calibration evidence are in [`public/demo/LICENSE.md`](public/demo/LICENSE.md).
 
 ## Use your own audio and MIDI
 
@@ -52,7 +52,7 @@ Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 4
 
 ### Cinematic performance
 
-The stage is a directed four-act sequence: a layered code monolith accumulates MIDI-driven cracks, a single principal impact releases a fixed shard field, those same shards resolve into staff and notation, and the camera enters a score-flight finale. Camera pose, impact shake, lighting, shards, and active notes are calculated from absolute logical time and a fixed seed, so seeking and export reconstruct the same shot instead of depending on playback history.
+The stage is a directed four-act sequence: a layered code monolith accumulates MIDI-driven cracks, a single principal impact releases a fixed shard field, those same shards resolve into flying notes and short active light trails, and the camera enters a city-flight finale. Camera pose, impact shake, lighting, shards, and active notes are calculated from absolute logical time and a fixed seed, so seeking and export reconstruct the same shot instead of depending on playback history.
 
 Free camera dragging is intentionally disabled during the performance. High quality uses 192 shards, longer trails, a volumetric key light, and 96 atmosphere particles. Low preview uses 96 shards, shorter trails, and 40 particles while preserving act timing, camera choreography, and active notation. If an optional volumetric effect is unavailable, emissive materials, fixed lights, bloom, and fog still provide a non-blocking visual fallback.
 

@@ -9,7 +9,7 @@
 - Local adaptation: `xintiaodeshengyin.mid`
 
 The source page identifies the work as a Mandarin pop/R&B song with Chinese
-lyrics and vocals, offers the MP3 for download, and marks the work CC BY 4.0.
+lyrics and AI-generated vocals, offers the MP3 for download, and marks the work CC BY 4.0.
 That license permits copying, redistribution, remixing, transformation, and
 commercial use, provided attribution is given, the license is linked, and
 changes are identified.

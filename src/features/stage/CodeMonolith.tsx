@@ -3,7 +3,7 @@ import { InstancedMesh, Object3D, Vector3 } from 'three';
 import type { DirectorState } from '../performance/director';
 import { mulberry32 } from '../performance/seed';
 
-type CodeMonolithProps = { logicalTime: number; seed: number; state: DirectorState['monolith'] };
+type CodeMonolithProps = { anchor: [number, number, number]; logicalTime: number; seed: number; state: DirectorState['monolith'] };
 export type CrackSegment = { parent: number; threshold: number; start: [number, number]; end: [number, number] };
 const CRACK_CAPACITY = 48;
 export const MONOLITH_META = { crackCapacity: CRACK_CAPACITY, layerCount: 3 } as const;
@@ -27,7 +27,7 @@ export function buildCrackSegments(seed: number): CrackSegment[] {
   return segments;
 }
 
-export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
+export function CodeMonolith({ anchor, logicalTime, seed, state }: CodeMonolithProps) {
   const crackRef = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
   const cracks = useMemo(() => buildCrackSegments(seed), [seed]);
@@ -36,8 +36,8 @@ export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
     const mesh = crackRef.current;
     if (!mesh || typeof mesh.setMatrixAt !== 'function') return;
     cracks.forEach((segment, index) => {
-      const start = new Vector3(segment.start[0] * 7.4, segment.start[1] * 4.8, 0.2);
-      const end = new Vector3(segment.end[0] * 7.4, segment.end[1] * 4.8, 0.2);
+      const start = new Vector3(segment.start[0] * 3.6, segment.start[1] * 2.2, 0.2);
+      const end = new Vector3(segment.end[0] * 3.6, segment.end[1] * 2.2, 0.2);
       const delta = end.clone().sub(start);
       const active = state.crackEnergy >= segment.threshold;
       dummy.position.copy(start).add(end).multiplyScalar(0.5);
@@ -51,7 +51,7 @@ export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
 
   const scanY = 2.35 - state.scanOffset * 4.7;
   return (
-    <group visible={state.opacity > 0.001}>
+    <group name="code-monolith" position={anchor} visible={state.opacity > 0.001}>
       {[0, 1, 2].map((layer) => (
         <group key={layer} position={[layer * 0.1 - 0.1, layer * 0.04, layer * -0.22]}>
           <mesh><boxGeometry args={[8.2 + layer * 0.25, 5.05 + layer * 0.18, 0.08]} />
@@ -70,7 +70,7 @@ export function CodeMonolith({ logicalTime, seed, state }: CodeMonolithProps) {
       ))}
       <instancedMesh ref={crackRef} args={[undefined, undefined, CRACK_CAPACITY]} frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
-        <meshBasicMaterial color="#eaffff" transparent opacity={state.opacity} toneMapped={false} />
+        <meshBasicMaterial color="#eaffff" transparent opacity={state.opacity * 0.48} toneMapped={false} />
       </instancedMesh>
       <mesh position={[0, scanY, 0.3]}><boxGeometry args={[7.8, 0.018, 0.02]} />
         <meshBasicMaterial color="#ffffff" opacity={state.opacity * (0.5 + 0.25 * Math.sin(logicalTime * 17))} transparent toneMapped={false} />

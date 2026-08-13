@@ -88,3 +88,13 @@ Final fresh verification after the fixes:
 - `npm run build`: passed with the existing advisory chunk-size warning.
 - Licensed built-in bounded 720p WebM Chromium test: passed in 24.2s.
 - Production Chromium four-act / five-seek acceptance: passed in 45.5s; screenshots inspected and audited above.
+
+## Final-fix wave
+
+The full-song camera/content mismatch was corrected with one absolute-time narrative anchor shared by the code wall and fracture field. Pure tests cover the real 232.968-second demo at the boot, fracture, and assemble screenshot times; wall/shard positions remain ahead of the camera and inside its target window. Chromium telemetry now tests the named `code-monolith` and `cinematic-fracture` scene bounds against the camera frustum, rather than accepting generic instance-pool counts.
+
+Note flight now derives render brightness and cyan/magenta identity from active state and velocity, renders fixed-capacity active cyan/magenta glow pools, and emits bounded trails only for currently sounding notes. Sustained-note capacity remains backed by `maximumWindowDemand`.
+
+City atmosphere now follows the absolute-time corridor through the entire song: three key lights and a deterministic local particle field travel with the camera, while larger physical facade accents keep cyan/magenta visible without a HUD or full-screen color overlay. Final sampled dark/cyan/magenta percentages were boot `60.846/9.501/4.132`, fracture `93.383/5.004/0.187`, assemble `77.997/7.281/0.560`, and perform `87.814/4.163/0.473`. These are compositional audit indicators, not exact quotas; visual inspection confirmed black-dominant city mass, visible cyan lighting, magenta accents, wall/fracture continuity, and note heads/stems between buildings.
+
+Final verification: `npm test` passed 23 files / 135 tests; `npm run typecheck` and `npm run build` passed; production Chromium four-act acceptance plus five repeated seek cycles passed; the licensed built-in 720p WebM export passed with one VP9 video and one Opus audio codec ID. MP4 was not run.

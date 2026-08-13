@@ -49,4 +49,13 @@ describe('buildCityLayout', () => {
     expect(magentaShare).toBeGreaterThanOrEqual(0.12);
     expect(magentaShare).toBeLessThanOrEqual(0.2);
   });
+
+  it('gives neon facades enough geometric surface to remain legible late in the corridor', () => {
+    const layout = buildCityLayout(232.968, 0xc17b3, 'high');
+    const facadeAreaPerWorldUnit = layout.lightStrips.reduce((area, strip, index) => (
+      area + strip.scale[1] * (index % 2 === 0 ? strip.scale[2] : strip.scale[0])
+    ), 0) / layout.length;
+
+    expect(facadeAreaPerWorldUnit).toBeGreaterThan(0.65);
+  });
 });

@@ -106,15 +106,34 @@ test('built-in demo plays and rebuilds every act after an absolute seek', async 
   await expect(page.getByRole('button', { name: 'Pause performance' })).toBeVisible();
   await page.getByRole('button', { name: 'Pause performance' }).click();
 
+  const canvas = page.locator('[data-cinematic-stage="true"] canvas');
+  const semanticTelemetry: Record<PerformanceAct, {
+    activeNoteTrails: number;
+    fractureInFrustum: boolean;
+    monolithInFrustum: boolean;
+  }> = {} as Record<PerformanceAct, {
+    activeNoteTrails: number;
+    fractureInFrustum: boolean;
+    monolithInFrustum: boolean;
+  }>;
   for (const act of ACTS) {
     await seekToAct(page, act);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    semanticTelemetry[act] = await canvas.evaluate((element) => ({
+      activeNoteTrails: Number(element.dataset.activeNoteTrails),
+      fractureInFrustum: element.dataset.fractureInFrustum === 'true',
+      monolithInFrustum: element.dataset.monolithInFrustum === 'true',
+    }));
     await page.getByLabel('Holographic performance stage').screenshot({
       animations: 'disabled',
       path: testInfo.outputPath(`act-${act}.png`),
     });
   }
 
-  const canvas = page.locator('[data-cinematic-stage="true"] canvas');
+  expect(semanticTelemetry.boot.monolithInFrustum, 'ACT01 code wall must occupy the camera frustum').toBe(true);
+  expect(semanticTelemetry.fracture.fractureInFrustum, 'ACT02 shard field must occupy the camera frustum').toBe(true);
+  expect(semanticTelemetry.assemble.fractureInFrustum, 'ACT03 assembling shards must remain in the camera frustum').toBe(true);
+  expect(semanticTelemetry.perform.activeNoteTrails, 'ACT04 must render at least one currently sounding short trail').toBeGreaterThan(0);
   await expect(canvas).toHaveAttribute('data-draw-calls', /[1-9]\d*/);
   await expect(canvas).toHaveAttribute('data-city-layers', '1');
   await expect(canvas).toHaveAttribute('data-note-flight-layers', '1');

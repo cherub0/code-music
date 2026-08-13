@@ -76,12 +76,12 @@ export function buildCityLayout(durationSeconds: number, seed: number, density: 
             building.position[1],
             building.position[2],
           ],
-          scale: [0.08, height * 0.66, 0.14],
+          scale: [0.12, height * 0.66, 0.65],
           magenta,
         });
         lightStrips.push({
           position: [building.position[0], -4 + height * 0.62, building.position[2] - depth / 2 - 0.055],
-          scale: [width * 0.86, 0.2, 0.18],
+          scale: [width * 0.86, 0.55, 0.26],
           magenta,
         });
       }
