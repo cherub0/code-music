@@ -4,6 +4,7 @@ import { Midi } from '@tonejs/midi';
 import { describe, expect, it } from 'vitest';
 import { parseMidi } from '../midi/parseMidi';
 import { BUILT_IN_DEMO } from './demoAssets';
+import { inspectMp3 } from './inspectMp3';
 
 const demoDirectory = join(process.cwd(), 'public', 'demo');
 
@@ -26,7 +27,7 @@ describe('built-in demo assets', () => {
     expect(BUILT_IN_DEMO.calibrationNotes).toContain('0.000');
   });
 
-  it('ships a nonempty synchronized Standard MIDI File', async () => {
+  it('ships decodable MP3 frames synchronized to a nonempty Standard MIDI File', async () => {
     const bytes = await readFile(join(demoDirectory, 'xintiaodeshengyin.mid'));
     const midi = new Midi(bytes);
     const projectScore = parseMidi(Uint8Array.from(bytes).buffer);
@@ -40,7 +41,16 @@ describe('built-in demo assets', () => {
     expect(projectScore.tracks).toHaveLength(2);
     expect(projectScore.notes).toHaveLength(noteCount);
     expect(midi.duration).toBeGreaterThan(220);
-    expect(Math.abs(232.968 - midi.duration)).toBeLessThanOrEqual(0.25);
+    const audioBytes = await readFile(
+      join(demoDirectory, 'xintiaodeshengyin.mp3'),
+    );
+    const audio = inspectMp3(audioBytes);
+
+    expect(audioBytes.byteLength).toBeGreaterThan(0);
+    expect(audio.frameCount).toBeGreaterThan(0);
+    expect(audio.durationSeconds).toBeGreaterThan(220);
+    expect(audio.sampleRate).toBe(48_000);
+    expect(Math.abs(audio.durationSeconds - midi.duration)).toBeLessThanOrEqual(0.25);
   });
 
   it('publishes the same licensed metadata through the runtime manifest', async () => {
