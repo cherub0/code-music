@@ -1,89 +1,91 @@
-# Cyberpunk City MIDI Visualizer
+# 赛博城市 MIDI 可视化器
 
 将音乐与匹配的 MIDI 转换为一场可导出的 Three.js 赛博城市演出：代码墙在城市中破碎，碎片重组为发光音符，音符随真实音乐时间穿梭于黑色巨构、青色雾光与洋红霓虹之间。
 
-A desktop-browser visualizer that plays local MP3, WAV, or OGG audio against a matching MID/MIDI score. The audio clock drives a deterministic four-act Three.js performance, and the same stage can be captured as WebM or optionally transcoded to MP4.
+项目面向桌面浏览器，可播放本地 MP3、WAV 或 OGG 音频及配套 MID/MIDI 曲谱。音频时钟驱动一套确定性的四幕动画，同一舞台可实时导出为 WebM，也可选择在浏览器内转码为 MP4。
 
-The score is an expressive visualization, not publication-grade music engraving. The V1 target is current desktop Chrome and Microsoft Edge; mobile optimization is intentionally out of scope.
+这里的曲谱属于表现性三维可视化，并非出版级乐谱排版。V1 主要支持当前桌面版 Chrome 和 Microsoft Edge，暂不以移动端为性能目标。
 
-## Highlights
+## 核心特性
 
-- **Four-act cinematic direction:** enter the city, fracture the code wall, assemble the score, then follow flying notes through the skyline.
-- **Music-reactive notes:** MIDI pitch, track, velocity, duration, and sounding state control position, color, brightness, and active trails.
-- **Deterministic seeking:** camera, shards, lights, notes, and atmosphere are reconstructed from absolute audio time.
-- **Local-first workflow:** selected audio and MIDI stay in the browser; there is no upload service or backend.
-- **Real-time export:** capture 720p/1080p WebM with audio, with optional lazy MP4 conversion through FFmpeg.wasm.
-- **Licensed Chinese demo:** includes the CC BY 4.0 Mandarin vocal track 《心跳的声音》 and a synchronized visualization MIDI.
+- **四幕电影化演出：**进入城市、代码墙破碎、碎片重组，最后跟随音符穿越楼群。
+- **音乐响应音符：**MIDI 音高、轨道、力度、时值和发声状态共同控制位置、颜色、亮度与拖尾。
+- **确定性时间轴：**镜头、碎片、灯光、音符和氛围均由绝对音频时间重建，拖动和导出可得到一致画面。
+- **本地优先：**用户选择的音频和 MIDI 只在浏览器中处理，没有上传服务或后端。
+- **实时视频导出：**支持带声音的 720p/1080p WebM，并可按需加载 FFmpeg.wasm 转换为 MP4。
+- **合法中文演示：**内置 CC BY 4.0 普通话人声歌曲《心跳的声音》及同步的可视化 MIDI。
 
-## Prerequisites
+## 环境要求
 
-- Node.js 20 or newer and npm 10 or newer.
-- A current desktop Chrome or Microsoft Edge installation with WebGL 2, Web Audio, `canvas.captureStream`, and WebM/Opus `MediaRecorder` support.
-- About 35 MB of additional memory/network transfer when optional MP4 conversion first loads the FFmpeg core and WASM bundle.
+- Node.js 20 或更高版本，npm 10 或更高版本。
+- 当前桌面版 Chrome 或 Microsoft Edge，并支持 WebGL 2、Web Audio、`canvas.captureStream` 与 WebM/Opus `MediaRecorder`。
+- 首次使用可选 MP4 转换时，需要额外加载约 35 MB 的 FFmpeg 核心与 WASM 文件。
 
-## Install and run locally
+## 本地安装与运行
 
 ```powershell
 npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. To exercise the production bundle instead:
+打开 Vite 在终端中输出的本地地址。若要测试生产构建：
 
 ```powershell
 npm run build
 npm run preview
 ```
 
-The built-in **《心跳的声音 (XinTiaoDeShengYin)》** pair is available from **Load built-in demo**. It is a Mandarin vocal track by Adeline Yeo (HP), distributed under CC BY 4.0; its source page identifies the vocal as AI-generated. The committed MIDI is a project-created beat/chroma transcription aligned to the recording. Full attribution, source links, AI-vocal disclosure, adaptation disclosure, and calibration evidence are in [`public/demo/LICENSE.md`](public/demo/LICENSE.md).
+点击界面中的 **加载内置演示** 即可载入《心跳的声音》。该曲由 Adeline Yeo (HP) 创作，以 CC BY 4.0 发布，来源页面注明人声由 AI 生成。仓库内 MIDI 是根据录音节拍与和声色度制作并校准的可视化转录，并非出版级声乐谱。完整署名、来源链接、AI 人声说明、改编说明及校准信息见 [`public/demo/LICENSE.md`](public/demo/LICENSE.md)。
 
-## Use your own audio and MIDI
+## 使用自己的音乐与 MIDI
 
-1. Choose an MP3, WAV, or OGG music file.
-2. Choose its matching `.mid` or `.midi` score.
-3. Select **启动演出** to initialize the stage and enable playback, the timeline, and export. File selection prepares the pair but does not mount a live stage or enable transport by itself.
-4. Start playback, pause, or seek with the bottom timeline. A seek rebuilds the animation from absolute logical time rather than replaying missed frames.
-5. Adjust calibration if the score and audio do not begin together.
+1. 选择 MP3、WAV 或 OGG 音频。
+2. 选择对应的 `.mid` 或 `.midi` 文件。
+3. 点击 **启动演出**，初始化舞台并启用播放、时间轴和导出。仅选择文件不会自动启动演出。
+4. 使用底部时间轴播放、暂停或跳转。每次跳转都会按绝对时间重建动画，而不是补播错过的帧。
+5. 如果音频与 MIDI 起点不同，可调整校准偏移和视觉速度。
 
-The app does not transcribe audio. For the best match, obtain a legitimately licensed MIDI made for the same recording/arrangement, or create one in a DAW by setting the recording's tempo map, entering/importing the notes, aligning the first intended downbeat, and exporting a Standard MIDI File. A MIDI for a different performance may have the right notes but still drift.
+应用目前不会把任意音频自动转写为 MIDI。为了获得准确效果，请使用与同一录音或编曲匹配且授权合法的 MIDI，或在 DAW 中设置录音速度图、录入音符、对齐第一个目标重拍后导出标准 MIDI 文件。来自另一场演奏的 MIDI 即使音符正确，也可能随着播放逐渐漂移。
 
-### Calibration workflow
+### 校准方法
 
-Start with offset `0` and speed `1`:
+初始使用偏移 `0`、速度 `1`：
 
-- If the visuals begin before the audio event, increase **Calibration offset**. If they begin late, decrease it. The visual clock is `(audio time - offset) × speed`.
-- Compare a second landmark near the end. If the start matches but the end does not, adjust **Visual speed multiplier** in small steps. This changes MIDI/animation timing only; the audio remains at normal speed.
-- Recheck the beginning and end after each speed change, then fine-tune offset again.
+- 如果视觉先于声音出现，增大 **校准偏移**；如果视觉出现得太晚，则减小偏移。视觉时钟为 `(音频时间 - 偏移) × 速度`。
+- 再检查靠近歌曲结尾的第二个节奏标志。如果开头对齐、结尾不齐，以小步调整 **视觉速度倍率**。这只改变 MIDI 与动画时间，不改变音频播放速度。
+- 每次调整速度后重新检查开头和结尾，最后再微调偏移。
 
-A single offset and speed cannot continuously align a live performance whose tempo drifts relative to the MIDI. That requires a tempo map or dynamic time warping, neither of which is in V1.
+单一偏移和速度无法持续修正自由速度或现场演奏中的动态漂移。这需要速度图或动态时间规整，均不属于 V1 范围。
 
-### Four-act timing
+## 四幕时间结构
 
-Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 45% of total duration. Tracks from 8 seconds up to (but not including) 20 seconds use fixed boundaries at 2, 5, and 8 seconds. Tracks under 8 seconds use compressed boundaries at 20%, 50%, and 80%, leaving the final 20% for the perform act.
+- 时长不少于 20 秒：四幕边界位于总时长的 12%、28% 和 45%。
+- 时长为 8–20 秒：边界固定在 2、5、8 秒。
+- 时长少于 8 秒：边界位于总时长的 20%、50%、80%，最后 20% 用于演奏幕。
 
-### Cinematic performance
+### 电影化舞台
 
-The stage is a directed four-act sequence: a layered code monolith accumulates MIDI-driven cracks, a single principal impact releases a fixed shard field, those same shards resolve into flying notes and short active light trails, and the camera enters a city-flight finale. Camera pose, impact shake, lighting, shards, and active notes are calculated from absolute logical time and a fixed seed, so seeking and export reconstruct the same shot instead of depending on playback history.
+演出依次经历四个阶段：多层代码墙积累由 MIDI 驱动的裂纹；主冲击释放固定碎片场；同一批碎片重组为飞行音符和短促发声拖尾；镜头最终进入城市跟拍。镜头姿态、冲击震动、灯光、碎片和发声音符均由绝对逻辑时间与固定种子计算，因此跳转和导出不会依赖此前播放历史。
 
-Free camera dragging is intentionally disabled during the performance. High quality uses 192 shards, longer trails, a volumetric key light, and 72 atmosphere particles. Low preview uses 96 shards, shorter trails, and 36 particles while preserving act timing, camera choreography, and active notation. If an optional volumetric effect is unavailable, emissive materials, fixed lights, bloom, and fog still provide a non-blocking visual fallback.
+演出期间不开放自由拖动镜头。高画质使用 192 个碎片、较长拖尾、体积主光和 72 个氛围粒子；低画质预览使用 96 个碎片、较短拖尾和 36 个粒子，同时保留幕结构、镜头编排与音乐响应逻辑。即使可选体积效果不可用，自发光材质、固定灯光、辉光和雾仍能提供非阻塞降级效果。
 
-## Export
+## 导出动画
 
-- **WebM** is the primary path. Chrome/Edge capture the 30 FPS stage and Web Audio in real time using VP9/VP8 plus Opus where supported.
-- **MP4** is optional. Choosing it first records WebM, then lazily loads FFmpeg/WASM and transcodes in the browser. FFmpeg is not downloaded or evaluated during initial preview or WebM-only export.
-- Both `1280 × 720` and `1920 × 1080` are supported. Export is real time, so keep the tab visible and avoid other GPU-heavy work until the download action appears.
-- If MP4 conversion fails, the captured WebM remains available. Cancellation restores the previous preview time and unlocks the controls.
+- **WebM：**主要导出路径。Chrome/Edge 使用 VP9/VP8 与 Opus（视浏览器支持情况）实时捕获 30 FPS 舞台和 Web Audio。
+- **MP4：**可选路径。应用先录制 WebM，再延迟加载 FFmpeg/WASM 并在浏览器中转码。普通预览与 WebM 导出不会加载 FFmpeg。
+- 支持 `1280 × 720` 与 `1920 × 1080`。导出按真实时间进行，请保持标签页可见，并避免同时运行其他高 GPU 负载程序。
+- MP4 转换失败时，已捕获的 WebM 仍可下载。取消操作会恢复之前的预览时间并解锁控件。
 
-### Exact manual MP4 procedure
+### MP4 人工验收步骤
 
-1. Run `npm run build` and `npm run preview`, then open the printed URL in the browser being accepted.
-2. Load the built-in demo and confirm play, pause, and timeline seek.
-3. Select **1280 × 720**, choose **MP4 (lazy FFmpeg conversion)**, and select **Start export**.
-4. Wait through both **Capture phase** and **MP4 transcode phase**. Download the MP4, confirm it is non-empty, and play it in a local player with both video and audio.
-5. Repeat with **1920 × 1080**. Confirm that controls are enabled again after each run.
-6. Repeat in the other supported browser. Record its exact version and any deviation; do not report this checklist as passed without a human completing it.
+1. 执行 `npm run build` 和 `npm run preview`，在待验收浏览器中打开本地地址。
+2. 加载内置演示，确认播放、暂停和时间轴跳转正常。
+3. 选择 **1280 × 720**、**MP4（延迟加载 FFmpeg）**，然后开始导出。
+4. 等待捕获和 MP4 转码完成，下载文件并在本地播放器中确认画面和声音均正常。
+5. 对 **1920 × 1080** 重复测试，并确认每次导出后控件重新可用。
+6. 在另一款支持的浏览器中重复。未完成人工播放验证时，不应把该项标记为通过。
 
-## Tests
+## 测试
 
 ```powershell
 npm test
@@ -93,64 +95,54 @@ npx playwright install chromium
 npm run e2e
 ```
 
-`npm run e2e` builds the production app and runs the stable built-in-demo and 720p WebM flows in Playwright-managed Chromium. Per-act screenshots, traces, video, downloads, and performance JSON are generated under ignored `test-results/`/`playwright-report/` directories and are not committed.
+`npm run e2e` 会构建生产版本，并在 Playwright Chromium 中运行内置演示和 720p WebM 稳定流程。各幕截图、追踪、视频、下载文件及性能数据会写入已忽略的 `test-results/` 和 `playwright-report/`，不会提交到仓库。
 
-Additional acceptance commands:
+其他验收命令：
 
 ```powershell
-npm run e2e:chrome       # stable flows in installed Google Chrome
-npm run e2e:edge         # stable flows in installed Microsoft Edge
-npm run e2e:performance  # hardware-dependent 1920×1080 viewport budget probe
-npm run e2e:manual       # headed, long-running Chrome + Edge acceptance automation
+npm run e2e:chrome       # 使用本机 Google Chrome 运行稳定流程
+npm run e2e:edge         # 使用本机 Microsoft Edge 运行稳定流程
+npm run e2e:performance  # 1920×1080、依赖硬件的性能预算探测
+npm run e2e:manual       # 有界面、长时间的 Chrome + Edge 验收流程
 ```
 
-The `@manual` flow exercises local-file intake, play/pause/seek, four acts, 1080p WebM, and 720p MP4; the stable flow already covers 720p WebM. It is excluded from the stable CI command because FFmpeg/WASM and real-time encoders are hardware-sensitive. A headed automated run is evidence distinct from the human MP4 procedure above.
+`@manual` 流程包含本地文件载入、播放/暂停/跳转、四幕、1080p WebM 与 720p MP4。由于 FFmpeg/WASM 和实时编码器受硬件影响，该流程不包含在稳定 CI 命令中。自动化有界面测试与人工播放验收属于不同证据，不能相互替代。
 
-## Performance budget and reference result
+## 性能预算
 
-The `@performance` probe warms the built production app, seeks the built-in demo to the perform act, samples browser animation frames for three seconds in a 1920×1080 viewport, reads Three.js renderer counters, performs five boot→perform seek cycles, samples peak JS heap when Chrome exposes it, and verifies that no FFmpeg/worker script was initially requested.
+性能探测会预热生产构建、跳转到演奏幕、在 1920×1080 视口中采样帧率与 Three.js 渲染器计数，执行五轮开场到演奏幕的跳转，并确认预览阶段没有请求 FFmpeg 或 worker 文件。
 
-Reference desktop recorded on 2026-08-13:
+当前约束为：演奏幕至少 50 FPS、最多 120 次 draw call、几何体和纹理数量不得随重复跳转持续增长，并且首次预览不得加载 FFmpeg。结果取决于机器和显卡驱动，依赖或驱动变化后应在发布硬件上重新运行。
 
-- Windows 11 10.0.26200, AMD Ryzen 7 5800H (8 cores/16 threads), 31.9 GiB RAM, NVIDIA GeForce RTX 3060 Laptop GPU (driver 31.0.15.4630).
-- Google Chrome 151.0.7922.108, automated headless run through Playwright 1.62.1, production build, 1920×1080 browser viewport, High preview quality.
-- Average: **164.82 FPS** after a 2-second warm-up; **24 draw calls**, **8 geometries**, **18 textures**, **13,779,367-byte peak JS heap**.
-- Five repeated seek cycles stayed at **8 geometries / 18 textures** with no monotonic growth.
-- Initial entry chunk: **1,225.77 kB minified / 345.13 kB gzip**. The initial network loaded only the hashed application entry; FFmpeg worker/core/WASM assets were emitted as separate lazy assets, including a **32,232.42 kB** WASM file, and were not requested by preview.
+## 浏览器验收状态
 
-This is automated reference-machine evidence, not a guarantee for every computer. The enforced budgets are at least 50 FPS, at most 120 draw calls during `perform`, no monotonic geometry/texture growth, and no initial FFmpeg request. Re-run the probe on the release hardware when graphics drivers or rendering dependencies change.
+- Playwright Chromium：内置演示、播放/暂停、四幕绝对时间跳转、逐幕截图、720p WebM、预览恢复及仅本地来源网络审计已通过。
+- 本机 Chrome：稳定生产流程已通过自动化测试。
+- 本机 Edge：稳定流程、本地 OGG/MIDI 载入、四幕及非空 1080p WebM 已分别通过自动化测试。
+- Edge MP4 自动化曾在超过 100 秒后停止，因此不记录为通过，仍需执行上述人工验收。
+- 下载后的 720p/1080p 文件与 MP4 播放仍属于发布人工检查项；自动化结果不会被表述为人工验收通过。
 
-## Browser acceptance status
+## 隐私
 
-Automated evidence and human acceptance are tracked separately:
+用户选择的音频和 MIDI 只会读入浏览器内存，并通过本地对象 URL 使用。预览、跳转、WebM 捕获和可选 MP4 转码均在浏览器内完成。应用没有后端、账号系统、分析脚本、上传接口或云存储。内置演示和延迟加载的 FFmpeg 文件只从应用自身来源获取。
 
-- Playwright-managed Chromium 151.0.7922.34: built-in demo, play/pause, four absolute-time seeks, per-act screenshots, 720p WebM MIME/size/download, preview restoration, and local-origin-only network audit pass.
-- Installed Chrome 151.0.7922.108: the same stable two-test production suite passed automatically.
-- Installed Edge 151.0.4129.78: the stable suite passed automatically; separate tagged runs also passed local OGG/MIDI intake with all four acts and a non-empty 1080p WebM with preview restoration.
-- Edge MP4 automation was stopped after more than 100 seconds without a terminal result. It is **not** recorded as passed and remains on the exact human checklist above.
-- Human validation of downloaded 720p/1080p files and MP4 playback remains a release checklist item unless a named tester records completion; automation is not represented as a manual pass.
+## 已知限制
 
-## Privacy
+- 单一偏移与速度无法完全校正相对 MIDI 持续漂移的现场或自由速度录音。
+- MIDI 用于表现性三维可视化，不是出版级乐谱。
+- 导出按真实时间进行，并受浏览器编码器、WebGL、GPU、内存和标签页节流影响。
+- MP4 会加载较大的 WASM 运行时，在内存较小的设备上可能失败；WebM 是稳定回退方案。
+- 当前不包含移动端性能目标、自动音频转写、账号、上传、云存储或自由关键帧编辑器。
 
-Selected audio and MIDI are read into browser memory and represented with local object URLs. Preview, seeking, WebM capture, and optional MP4 transcode happen in the browser. The application has no backend, account system, analytics, upload endpoint, or cloud storage. The built-in demo and lazy FFmpeg assets are fetched only from the same app origin. `npm install` may contact the npm registry for developer dependencies, but running the app does not send user media anywhere.
+## 后续优化
 
-## Known limitations
+- 为移动设备和集成显卡增加更多自适应画质档位。
+- 增加可选歌词/字幕时间轴，同时与 MIDI 时间保持解耦。
+- 提供辅助音频转 MIDI 收集与校准流程；当前版本不会自动转写任意音频。
+- 增加更多城市区域、镜头预设和克制的音乐响应环境效果。
+- 缩小 Three.js 初始包体，并继续隔离按需加载的 FFmpeg 路径。
+- 完成 Chrome/Edge 的 720p、1080p 和 MP4 人工播放验收。
 
-- A live or rubato performance that drifts against a fixed MIDI cannot be corrected throughout by one offset/speed pair.
-- MIDI drives an expressive 3D score; notation is not publication-grade.
-- Export is real time and depends on browser codec, WebGL, GPU, memory, and tab-throttling behavior.
-- MP4 adds a large lazy WASM runtime and may fail on memory-constrained machines; WebM remains the supported fallback.
-- No mobile performance target, audio transcription, accounts, uploads, cloud storage, or free-form keyframe editor is included.
+欢迎贡献代码和视觉实验。演示媒体必须允许合法再分发，并记录来源、许可证和所有转换过程。
 
-## Roadmap / 后续优化
-
-- Improve mobile and integrated-GPU rendering quality with additional adaptive tiers.
-- Add optional lyric/subtitle timing without coupling it to MIDI timing.
-- Provide assisted audio-to-MIDI collection and calibration workflows; the current app does not transcribe arbitrary audio.
-- Add more city districts, camera presets, and restrained music-reactive environmental effects.
-- Reduce the initial Three.js bundle and continue isolating the lazy FFmpeg path.
-- Complete human playback acceptance for Chrome/Edge 720p, 1080p, and MP4 exports.
-
-Contributions and visual experiments are welcome. Please keep demo media legally redistributable and document its source, license, and any transformations.
-
-Committed media provenance and licenses are listed in [`docs/assets.md`](docs/assets.md).
+已提交媒体的来源与许可清单见 [`docs/assets.md`](docs/assets.md)。
