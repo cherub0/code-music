@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest';
+import { buildCityLayout } from './cityLayout';
+
+describe('buildCityLayout', () => {
+  it('builds a deterministic high-density canyon that covers the score journey', () => {
+    const layout = buildCityLayout(60, 0xc17b3, 'high');
+
+    expect(layout.length).toBeGreaterThanOrEqual(108);
+    expect(layout.buildings.every((building) => Math.abs(building.position[0]) >= 4.5)).toBe(true);
+    expect(layout.buildings.every((building) => Math.abs(building.position[0]) - building.scale[0] / 2 >= 4.5)).toBe(true);
+    expect(layout.buildings.every((building) => Math.abs(building.position[0]) - building.scale[0] / 2 <= 6.3)).toBe(true);
+    expect(layout.lightStrips.every((strip) => Math.abs(strip.position[0]) - strip.scale[0] / 2 >= 4.35)).toBe(true);
+    expect(buildCityLayout(60, 0xc17b3, 'high')).toEqual(layout);
+    expect(buildCityLayout(60, 0xc17b4, 'high')).not.toEqual(layout);
+    expect(buildCityLayout(60, 0xc17b3, 'low').buildings.length).toBeLessThan(layout.buildings.length);
+  });
+
+  it('retains the same generated building candidates at low density', () => {
+    const high = buildCityLayout(60, 0xc17b3, 'high');
+    const low = buildCityLayout(60, 0xc17b3, 'low');
+
+    expect(low.buildings).toEqual(high.buildings.filter((_, index) => Math.floor(index / 2) % 2 === 0));
+  });
+
+  it('places each vertical neon strip on the canyon-facing facade', () => {
+    const layout = buildCityLayout(20, 0xc17b3, 'high');
+
+    layout.buildings.forEach((building, index) => {
+      const verticalStrip = layout.lightStrips[index * 2];
+      expect(Math.abs(verticalStrip.position[0])).toBeLessThan(Math.abs(building.position[0]));
+    });
+  });
+
+  it('places each horizontal neon strip on the forward-facing facade', () => {
+    const layout = buildCityLayout(20, 0xc17b3, 'high');
+
+    layout.buildings.forEach((building, index) => {
+      const horizontalStrip = layout.lightStrips[index * 2 + 1];
+      expect(horizontalStrip.position[2]).toBeLessThan(building.position[2]);
+      expect(horizontalStrip.position[1]).toBeLessThan(building.position[1] + building.scale[1] / 2);
+      expect(horizontalStrip.scale[0]).toBeGreaterThan(1);
+      expect(horizontalStrip.scale[1]).toBeGreaterThanOrEqual(0.14);
+    });
+  });
+
+  it('reserves a nontrivial share of facade accents for magenta', () => {
+    const layout = buildCityLayout(232.9, 0xc17b3, 'high');
+    const magentaShare = layout.lightStrips.filter((strip) => strip.magenta).length / layout.lightStrips.length;
+    expect(magentaShare).toBeGreaterThanOrEqual(0.12);
+    expect(magentaShare).toBeLessThanOrEqual(0.2);
+  });
+
+  it('gives neon facades enough geometric surface to remain legible late in the corridor', () => {
+    const layout = buildCityLayout(232.968, 0xc17b3, 'high');
+    const facadeAreaPerWorldUnit = layout.lightStrips.reduce((area, strip, index) => (
+      area + strip.scale[1] * (index % 2 === 0 ? strip.scale[2] : strip.scale[0])
+    ), 0) / layout.length;
+
+    expect(facadeAreaPerWorldUnit).toBeGreaterThan(0.65);
+  });
+});

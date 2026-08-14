@@ -1,0 +1,20 @@
+export const BUILT_IN_DEMO = {
+  title: '心跳的声音 (XinTiaoDeShengYin)',
+  artist: 'Adeline Yeo (HP)',
+  language: 'zh',
+  hasVocals: true,
+  redistributionAllowed: true,
+  license: 'CC BY 4.0',
+  sourceUrl:
+    'https://freemusicarchive.org/music/adeline-yeo-hp/single/xintiaodeshengyin/',
+  licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+  audioUrl: '/demo/xintiaodeshengyin.mp3',
+  midiUrl: '/demo/xintiaodeshengyin.mid',
+  offsetSeconds: 0,
+  speed: 1,
+  seed: 0x20251202,
+  modificationNotes:
+    'Original MP3 retained; MIDI is a project-created beat/chroma transcription and therefore an adaptation.',
+  calibrationNotes:
+    'MIDI uses absolute analyzed beat times; runtime calibration offset is 0.000 seconds and speed is 1.000.',
+} as const;

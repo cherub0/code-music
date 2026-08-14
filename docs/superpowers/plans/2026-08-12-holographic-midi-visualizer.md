@@ -304,7 +304,9 @@ it('returns only notes in the active time window', () => {
 
 - [ ] **Step 2: Write failing performance-frame tests**
 
-Verify exact act boundaries at 0%, 12%, 28%, and 45% of track duration, and verify the same time plus seed returns byte-for-byte equal frame data. For tracks shorter than 20 seconds, use fixed boundaries `0–2`, `2–5`, `5–8`, then perform.
+Verify exact act boundaries at 0%, 12%, 28%, and 45% of track duration, and verify the same time plus seed returns byte-for-byte equal frame data. The original 2026-08-12 plan then said every track shorter than 20 seconds should use fixed boundaries `0–2`, `2–5`, `5–8`, then perform.
+
+**2026-08-13 final-review correction (not the original rule):** that broad short-track statement was incomplete. The implemented and tested rule is: durations `>= 20s` use `12% / 28% / 45%`; durations `>= 8s` and `< 20s` use fixed `0 / 2 / 5 / 8` second boundaries; durations `< 8s` use `20% / 50% / 80%` of total duration so a non-empty perform act remains. The 4-second licensed demo therefore switches at `0.8 / 2.0 / 3.2` seconds and shows all four acts.
 
 - [ ] **Step 3: Run tests and verify failure**
 
@@ -314,7 +316,7 @@ Expected: FAIL because layout and frame functions are missing.
 
 - [ ] **Step 4: Implement score mapping and windowing**
 
-Use C4/MIDI 60 as vertical baseline; map each semitone to `0.18` world units. Map score time to ribbon distance at `1.5` world units per second. Clamp visual velocity to `0.15–1.0`. Use binary search on sorted start times to obtain the active window without scanning the whole score.
+Use C4/MIDI 60 as vertical baseline; map each semitone to `0.18` world units. Map score time to ribbon distance at `1.5` world units per second. Clamp visual velocity to `0.15–1.0`. The original start-time-only binary-search window was corrected during final review: a note is visible when `[noteStart, noteEnd]` overlaps the inclusive visible window, and a prebuilt interval index avoids a full-score scan on each frame. Instanced-mesh capacity uses the same overlap semantics through an offline sweep of expanded note intervals.
 
 - [ ] **Step 5: Implement seeded choreography**
 

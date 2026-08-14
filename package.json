@@ -1,0 +1,52 @@
+{
+  "name": "holographic-midi-visualizer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "demo:render": "node scripts/render-midi-demo.mjs",
+    "dev": "vite",
+    "preview": "vite preview",
+    "build": "tsc -b && vite build",
+    "test": "vitest run src",
+    "test:watch": "vitest src",
+    "typecheck": "tsc --noEmit",
+    "e2e": "npm run build && playwright test --project=chromium --grep-invert @extended",
+    "e2e:performance": "npm run build && playwright test --project=chrome --grep @performance",
+    "e2e:chrome": "npm run build && playwright test --project=chrome --grep-invert @extended",
+    "e2e:edge": "npm run build && playwright test --project=edge --grep-invert @extended",
+    "e2e:manual": "npm run build && playwright test --project=chrome --project=edge --grep @manual --headed"
+  },
+  "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@react-three/drei": "10.4.2",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/postprocessing": "^3.0.4",
+    "@tonejs/midi": "^2.0.28",
+    "gsap": "^3.13.0",
+    "postprocessing": "^6.38.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "^0.182.0",
+    "troika-three-text": "^0.52.4",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^20.17.30",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@types/three": "^0.182.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "jsdom": "^26.1.0",
+    "playwright": "^1.56.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.2.4"
+  }
+}
