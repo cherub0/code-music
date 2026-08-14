@@ -1,8 +1,19 @@
-# Holographic MIDI Visualizer
+# Cyberpunk City MIDI Visualizer
+
+将音乐与匹配的 MIDI 转换为一场可导出的 Three.js 赛博城市演出：代码墙在城市中破碎，碎片重组为发光音符，音符随真实音乐时间穿梭于黑色巨构、青色雾光与洋红霓虹之间。
 
 A desktop-browser visualizer that plays local MP3, WAV, or OGG audio against a matching MID/MIDI score. The audio clock drives a deterministic four-act Three.js performance, and the same stage can be captured as WebM or optionally transcoded to MP4.
 
 The score is an expressive visualization, not publication-grade music engraving. The V1 target is current desktop Chrome and Microsoft Edge; mobile optimization is intentionally out of scope.
+
+## Highlights
+
+- **Four-act cinematic direction:** enter the city, fracture the code wall, assemble the score, then follow flying notes through the skyline.
+- **Music-reactive notes:** MIDI pitch, track, velocity, duration, and sounding state control position, color, brightness, and active trails.
+- **Deterministic seeking:** camera, shards, lights, notes, and atmosphere are reconstructed from absolute audio time.
+- **Local-first workflow:** selected audio and MIDI stay in the browser; there is no upload service or backend.
+- **Real-time export:** capture 720p/1080p WebM with audio, with optional lazy MP4 conversion through FFmpeg.wasm.
+- **Licensed Chinese demo:** includes the CC BY 4.0 Mandarin vocal track 《心跳的声音》 and a synchronized visualization MIDI.
 
 ## Prerequisites
 
@@ -54,7 +65,7 @@ Tracks of at least 20 seconds use proportional act boundaries at 12%, 28%, and 4
 
 The stage is a directed four-act sequence: a layered code monolith accumulates MIDI-driven cracks, a single principal impact releases a fixed shard field, those same shards resolve into flying notes and short active light trails, and the camera enters a city-flight finale. Camera pose, impact shake, lighting, shards, and active notes are calculated from absolute logical time and a fixed seed, so seeking and export reconstruct the same shot instead of depending on playback history.
 
-Free camera dragging is intentionally disabled during the performance. High quality uses 192 shards, longer trails, a volumetric key light, and 96 atmosphere particles. Low preview uses 96 shards, shorter trails, and 40 particles while preserving act timing, camera choreography, and active notation. If an optional volumetric effect is unavailable, emissive materials, fixed lights, bloom, and fog still provide a non-blocking visual fallback.
+Free camera dragging is intentionally disabled during the performance. High quality uses 192 shards, longer trails, a volumetric key light, and 72 atmosphere particles. Low preview uses 96 shards, shorter trails, and 36 particles while preserving act timing, camera choreography, and active notation. If an optional volumetric effect is unavailable, emissive materials, fixed lights, bloom, and fog still provide a non-blocking visual fallback.
 
 ## Export
 
@@ -130,5 +141,16 @@ Selected audio and MIDI are read into browser memory and represented with local 
 - Export is real time and depends on browser codec, WebGL, GPU, memory, and tab-throttling behavior.
 - MP4 adds a large lazy WASM runtime and may fail on memory-constrained machines; WebM remains the supported fallback.
 - No mobile performance target, audio transcription, accounts, uploads, cloud storage, or free-form keyframe editor is included.
+
+## Roadmap / 后续优化
+
+- Improve mobile and integrated-GPU rendering quality with additional adaptive tiers.
+- Add optional lyric/subtitle timing without coupling it to MIDI timing.
+- Provide assisted audio-to-MIDI collection and calibration workflows; the current app does not transcribe arbitrary audio.
+- Add more city districts, camera presets, and restrained music-reactive environmental effects.
+- Reduce the initial Three.js bundle and continue isolating the lazy FFmpeg path.
+- Complete human playback acceptance for Chrome/Edge 720p, 1080p, and MP4 exports.
+
+Contributions and visual experiments are welcome. Please keep demo media legally redistributable and document its source, license, and any transformations.
 
 Committed media provenance and licenses are listed in [`docs/assets.md`](docs/assets.md).
